@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity >=0.6.8;
+
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@lbertenasco/contract-utils/contracts/utils/UtilsReady.sol";
+
+import '../../interfaces/stealth/IStealthVault.sol';
+
+/*
+ * StealthVault
+ */
+contract StealthVault is UtilsReady, IStealthVault {
+    using SafeMath for uint256;
+
+    mapping(bytes32 => address) public hashReportedBy;
+
+    uint256 public totalBonded;
+    mapping(address => uint256) public bonded;
+
+    // TODO Add penalty lock for 1 week to make sure it was not an uncle block. (find a way to make this not a stress on governor)
+
+    constructor() public UtilsReady() {
+    }
+
+    function isStealthVault() external pure override returns (bool) {
+        return true;
+    }
+
+    function bond() external payable override {
+        require(msg.value > 0, 'StealthVault::bond:msg-value-should-be-greater-than-zero');
+        bonded[msg.sender] = bonded[msg.sender].add(msg.value);
+        totalBonded = totalBonded.add(msg.value);
+        emit Bonded(msg.sender, msg.value, bonded[msg.sender]);
+    }
+
+    function unbondAll() external override {
+        unbound(bonded[msg.sender]);
+    }
+
+    function unbond(uint256 _amount) public override { 
+        require(_amount > 0, 'StealthVault::unbond:amount-should-be-greater-than-zero');
+
+        _burnBond(msg.sender, _amount);
+
+        payable(msg.sender).transfer(_amount);
+        emit Unbonded(msg.sender, _amount, bonded[msg.sender]);
+    }
+
+    function _burnBond(address _user, uint256 _amount) internal {
+        bonded[_user] = bonded[_user].sub(_amount);
+        totalBonded = totalBonded.sub(_amount);
+    }
+
+
+    function validateHash(address _keeper, bytes32 _hash, uint256 _penalty) external override returns (bool) {
+        // keeper is required to be an EOA to avoid onc-hain hash generation to bypass penalty
+        require(_keeper == tx.origin, 'StealthVault::validateHash:keeper-should-be-EOA');
+
+        address reportedBy = hashReportedBy[_hash];
+        if (reportedBy != address(0)) {
+            // User reported this TX as public, taking penalty away
+            _burnBond(_keeper, _penalty);
+
+            delete hashReportedBy[_hash];
+            payable(reportedBy).transfer(_penalty);
+
+            emit BondTaken(_keeper, _penalty, bonded[_keeper], reportedBy);
+
+            // invalid: has was reported
+            return false;
+        }
+
+        // valid: has was not reported
+        return true;
+    }
+
+    function reportHash(bytes32 _hash) external override {
+        require(hashReportedBy[_hash] == address(0), 'StealthVault::reportHash:hash-already-reported');
+        hashReportedBy[_hash] = msg.sender;
+        emit ReportedHash(_hash, msg.sender);
+    }
+}

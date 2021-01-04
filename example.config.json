@@ -1,0 +1,36 @@
+{
+    "accounts": {
+        "mainnet": {
+            "publicKey": "",
+            "privateKey": "",
+            "deployer": ""
+        }
+    },
+    "contracts": {
+        "mainnet": {
+            
+        }
+    },
+    "infura": {
+        "_name": "",
+        "apiKey": ""
+    },
+    "etherscan": {
+        "_name": "",
+        "apiKey": ""
+    },
+    "coinmarketcap": {
+        "_name": "",
+        "apiKey": ""
+    },
+    "alchemy": {
+        "mainnet": {
+            "_name": "",
+            "apiKey": ""
+        },
+        "ropsten": {
+            "_name": "",
+            "apiKey": ""
+        }
+    }
+}

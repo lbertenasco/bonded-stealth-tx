@@ -1,0 +1,54 @@
+{
+  "name": "@lbertenasco/bonded-stealth-tx",
+  "description": "bonded stealth tx vault smart contracts",
+  "version": "0.1.0",
+  "files": [
+    "/contracts/**/*.sol",
+    "/interfaces/**/*.sol",
+    "!/contracts/mock"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lbertenasco/bonded-stealth-tx.git"
+  },
+  "author": "Luciano Bertenasco <lbertenasco@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lbertenasco/bonded-stealth-tx/issues"
+  },
+  "keywords": [
+    "solidity",
+    "ethereum",
+    "smart",
+    "contracts",
+    "bonded",
+    "stealth",
+    "private",
+    "transactions"
+  ],
+  "devDependencies": {
+    "@lbertenasco/contract-utils": "0.2.0",
+    "@nomiclabs/hardhat-ethers": "2.0.1",
+    "@nomiclabs/hardhat-etherscan": "2.1.0",
+    "@nomiclabs/hardhat-waffle": "2.0.1",
+    "@openzeppelin/contracts": "3.3.0",
+    "chai": "4.2.0",
+    "ethereum-waffle": "3.2.1",
+    "ethers": "5.0.24",
+    "hardhat": "2.0.6",
+    "hardhat-gas-reporter": "1.0.4",
+    "prompt-confirm": "2.0.4"
+  },
+  "scripts": {
+    "test": "npx hardhat test",
+    "test:gas": "REPORT_GAS=true npx hardhat test",
+    "compile": "npx hardhat compile"
+  },
+  "homepage": "https://github.com/lbertenasco/bonded-stealth-tx#readme",
+  "main": "",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "dependencies": {}
+}
