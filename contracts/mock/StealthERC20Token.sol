@@ -2,14 +2,16 @@
 pragma solidity >=0.6.8;
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import "@lbertenasco/contract-utils/contracts/utils/Governable.sol";
+import "@lbertenasco/contract-utils/contracts/utils/Manageable.sol";
 import "@lbertenasco/contract-utils/contracts/utils/StealthTx.sol";
 
-contract ERC20Token is ERC20, Governable, StealthTx {
+contract ERC20Token is ERC20, Governable, Manageable, StealthTx {
     constructor(
         string memory _name,
         string memory _symbol,
-        uint256 _mintAmount
-    ) public ERC20(_name, _symbol) Governable(msg.sender) {
+        uint256 _mintAmount,
+        address _stealthVault
+    ) public ERC20(_name, _symbol) Governable(msg.sender) Manageable(msg.sender) StealthTx(_stealthVault) {
         _mint(msg.sender, _mintAmount);
     }
 
@@ -17,7 +19,7 @@ contract ERC20Token is ERC20, Governable, StealthTx {
         _mint(_to, _amount);
     }
 
-    // StealthTx
+    // StealthTx: restricted-access
     function setPenalty(uint256 _penalty) external override onlyGovernor {
         _setPenalty(_penalty);
     }
@@ -26,12 +28,21 @@ contract ERC20Token is ERC20, Governable, StealthTx {
         _migrateStealthVault();
     }
 
-    // Governable
+    // Governable: restricted-access
     function setPendingGovernor(address _pendingGovernor) external override onlyGovernor {
         _setPendingGovernor(_pendingGovernor);
     }
 
     function acceptGovernor() external override onlyPendingGovernor {
         _acceptGovernor();
+    }
+
+    // Manageable: restricted-access
+    function setPendingManager(address _pendingManager) external override onlyManager {
+        _setPendingManager(_pendingManager);
+    }
+
+    function acceptManager() external override onlyPendingManager {
+        _acceptManager();
     }
 }

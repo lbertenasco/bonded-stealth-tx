@@ -11,7 +11,9 @@ interface IStealthVault {
     event BondTaken(address _keeper, uint256 _penalty, uint256 _finalBond, address _reportedBy);
 
     // keeper
+    function totalBonded() external view returns (uint256 _totalBonded);
     function bonded(address _user) external view returns (uint256 _bond);
+    function hashReportedBy(bytes32 _hash) external view returns (address _reportedBy);
     function bond() external payable;
     function unbondAll() external;
     function unbond(uint256 _amount) external; 

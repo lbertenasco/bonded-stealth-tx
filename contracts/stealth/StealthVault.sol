@@ -13,10 +13,10 @@ import '../../interfaces/stealth/IStealthVault.sol';
 contract StealthVault is UtilsReady, IStealthVault {
     using SafeMath for uint256;
 
-    mapping(bytes32 => address) public hashReportedBy;
+    mapping(bytes32 => address) public override hashReportedBy;
 
-    uint256 public totalBonded;
-    mapping(address => uint256) public bonded;
+    uint256 public override totalBonded;
+    mapping(address => uint256) public override bonded;
 
     // TODO Add penalty lock for 1 week to make sure it was not an uncle block. (find a way to make this not a stress on governor)
 
@@ -35,7 +35,7 @@ contract StealthVault is UtilsReady, IStealthVault {
     }
 
     function unbondAll() external override {
-        unbound(bonded[msg.sender]);
+        unbond(bonded[msg.sender]);
     }
 
     function unbond(uint256 _amount) public override { 
@@ -52,9 +52,9 @@ contract StealthVault is UtilsReady, IStealthVault {
         totalBonded = totalBonded.sub(_amount);
     }
 
-
     function validateHash(address _keeper, bytes32 _hash, uint256 _penalty) external override returns (bool) {
         // keeper is required to be an EOA to avoid onc-hain hash generation to bypass penalty
+        // TODO Check how to prevent contract to forward txs from keep3rs to steal the bond
         require(_keeper == tx.origin, 'StealthVault::validateHash:keeper-should-be-EOA');
 
         address reportedBy = hashReportedBy[_hash];
