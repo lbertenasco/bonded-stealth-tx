@@ -15,6 +15,12 @@ contract StealthVault is UtilsReady, IStealthVault {
 
     mapping(bytes32 => address) public override hashReportedBy;
 
+    mapping(address => mapping(address => bool)) internal _keeperStealthJobs;
+    function keeperStealthJobs(address _keeper, address _job) external view override returns (bool _enabled) {
+        return _keeperStealthJobs[_keeper][_job];
+    }
+
+
     uint256 public override totalBonded;
     mapping(address => uint256) public override bonded;
 
@@ -79,5 +85,25 @@ contract StealthVault is UtilsReady, IStealthVault {
         require(hashReportedBy[_hash] == address(0), 'StealthVault::reportHash:hash-already-reported');
         hashReportedBy[_hash] = msg.sender;
         emit ReportedHash(_hash, msg.sender);
+    }
+
+    function enableStealthJob(address _job) external override {
+        _setKeeperJob(_job, true);
+    }
+    function enableStealthJobs(address[] calldata _jobs) external override {
+        for (uint i = 0; i < _jobs.length; i++) {
+            _setKeeperJob(_jobs[i], true);
+        }
+    }
+    function disableStealthJob(address _job) external override {
+        _setKeeperJob(_job, false);
+    }
+    function disableStealthJobs(address[] calldata _jobs) external override {
+        for (uint i = 0; i < _jobs.length; i++) {
+            _setKeeperJob(_jobs[i], false);
+        }
+    }
+    function _setKeeperJob(address _job, bool _enabled) internal {
+        _keeperStealthJobs[msg.sender][_job] = _enabled;
     }
 }

@@ -17,6 +17,11 @@ interface IStealthVault {
     function bond() external payable;
     function unbondAll() external;
     function unbond(uint256 _amount) external; 
+    function keeperStealthJobs(address _keeper, address _job) external view returns (bool _enabled);
+    function enableStealthJob(address _job) external;
+    function enableStealthJobs(address[] calldata _jobs) external;
+    function disableStealthJob(address _job) external;
+    function disableStealthJobs(address[] calldata _jobs) external;
 
     // job
     function validateHash(address _keeper, bytes32 _hash, uint256 _penalty) external returns (bool);

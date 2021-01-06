@@ -5,7 +5,7 @@ import "@lbertenasco/contract-utils/contracts/utils/Governable.sol";
 import "@lbertenasco/contract-utils/contracts/utils/Manageable.sol";
 import "@lbertenasco/contract-utils/contracts/utils/StealthTx.sol";
 
-contract ERC20Token is ERC20, Governable, Manageable, StealthTx {
+contract StealthERC20 is ERC20, Governable, Manageable, StealthTx {
     constructor(
         string memory _name,
         string memory _symbol,
