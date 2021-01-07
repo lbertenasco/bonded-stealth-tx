@@ -1,15 +1,16 @@
 const { expect } = require('chai');
 const config = require('../.config.json');
-const { getTxCost } = require('../utils/web3-utils');
+const { ZERO_ADDRESS, getTxCost } = require('../utils/web3-utils');
 
 const e18 = ethers.BigNumber.from(10).pow(18);
 
 describe('StealthVault', () => {
-  let owner, alice;
+  let owner, alice, keeper;
   let StealthVault, stealthVault;
 
   before('Setup accounts and contracts', async () => {
     [owner, alice] = await ethers.getSigners();
+    keeper = owner.address;
     StealthVault = await ethers.getContractFactory('StealthVault');
   });
   
@@ -37,7 +38,7 @@ describe('StealthVault', () => {
     it('adds msg.value to bonded[msg.sender] and totalBonded', async () => {
       const bond = e18;
       await stealthVault.bond({value: bond});
-      expect(await stealthVault.bonded(owner.address)).to.eq(bond);
+      expect(await stealthVault.bonded(keeper)).to.eq(bond);
       expect(await stealthVault.totalBonded()).to.eq(bond);
     })
     it('emits Bonded event', async () => {
@@ -45,7 +46,7 @@ describe('StealthVault', () => {
       const tx = await stealthVault.bond({value: bond});
       const event = (await tx.wait()).events[0];
       expect(event.event).to.eq('Bonded');
-      expect(event.args._keeper).to.eq(owner.address);
+      expect(event.args._keeper).to.eq(keeper);
       expect(event.args._amount).to.eq(bond);
       expect(event.args._finalBond).to.eq(bond);
     })
@@ -73,18 +74,18 @@ describe('StealthVault', () => {
       const removedBond = bond.div(10);
       await stealthVault.bond({ value: bond });
       await stealthVault.unbond(removedBond);
-      expect(await stealthVault.bonded(owner.address)).to.eq(bond.sub(removedBond));
+      expect(await stealthVault.bonded(keeper)).to.eq(bond.sub(removedBond));
       expect(await stealthVault.totalBonded()).to.eq(bond.sub(removedBond));
 
     })
     it('fully removes bond and totalBonded', async () => {
       const bond = e18;
-      const balance = await ethers.provider.getBalance(owner.address);
+      const balance = await ethers.provider.getBalance(keeper);
       const tx1 = await stealthVault.bond({ value: bond });
       const tx2 = await stealthVault.unbondAll();
-      const balanceAfter = await ethers.provider.getBalance(owner.address);
+      const balanceAfter = await ethers.provider.getBalance(keeper);
       expect(balance).to.eq(balanceAfter.add(await getTxCost(tx1)).add(await getTxCost(tx2)));
-      expect(await stealthVault.bonded(owner.address)).to.eq(0);
+      expect(await stealthVault.bonded(keeper)).to.eq(0);
       expect(await stealthVault.totalBonded()).to.eq(0);
     })
     it('emits Unbonded event', async () => {
@@ -93,43 +94,122 @@ describe('StealthVault', () => {
       const tx = await stealthVault.unbondAll();
       const event = (await tx.wait()).events[0];
       expect(event.event).to.eq('Unbonded');
-      expect(event.args._keeper).to.eq(owner.address);
+      expect(event.args._keeper).to.eq(keeper);
       expect(event.args._amount).to.eq(bond);
       expect(event.args._finalBond).to.eq(0);
     })
   });
 
-  /*
-  function validateHash(address _keeper, bytes32 _hash, uint256 _penalty) external override returns (bool) {
-    // keeper is required to be an EOA to avoid onc-hain hash generation to bypass penalty
-    // TODO Check how to prevent contract to forward txs from keep3rs to steal the bond
-    require(_keeper == tx.origin, 'StealthVault::validateHash:keeper-should-be-EOA');
-
-    address reportedBy = hashReportedBy[_hash];
-    if (reportedBy != address(0)) {
-      // User reported this TX as public, taking penalty away
-      _burnBond(_keeper, _penalty);
-
-      delete hashReportedBy[_hash];
-      payable(reportedBy).transfer(_penalty);
-
-      emit BondTaken(_keeper, _penalty, bonded[_keeper], reportedBy);
-
-      // invalid: has was reported
-      return false;
-    }
-
-    // valid: has was not reported
-    return true;
-  }
-  */
   describe('validateHash', async () => {
-    
+    const hash = ethers.utils.formatBytes32String('random-hash');
+    const bond = e18;
+    const penalty = e18;
+    it('reverts on _keeper not tx.origin', async () => {
+      await expect(stealthVault.validateHash(alice.address, hash, penalty))
+        .to.be.revertedWith('StealthVault::validateHash:keeper-should-be-EOA');
+    })
+    it('reverts on keeper job not  enabled', async () => {
+      await expect(stealthVault.validateHash(keeper, hash, penalty))
+        .to.be.revertedWith('StealthVault::validateHash:keeper-job-not-enabled');
+    })
+    describe('on enabled StealthJob', async () => {
+      beforeEach('', async () => {
+        await stealthVault.enableStealthJob(keeper);
+      });
+      
+      it('reverts when bond is less than penalty', async () => {
+        await expect(stealthVault.validateHash(keeper, hash, penalty))
+          .to.be.revertedWith('StealthVault::validateHash:bond-less-than-penalty');
+      })
+      it('returns true on non reported hash', async () => {
+        await stealthVault.bond({ value: bond });
+        expect(await stealthVault.callStatic.validateHash(keeper, hash, bond))
+          .to.be.true;
+      })
+
+      it('reverts on reported hash but no bond', async () => {
+        await stealthVault.reportHash(hash);
+        await expect(stealthVault.validateHash(keeper, hash, penalty))
+          .to.be.revertedWith('StealthVault::validateHash:bond-less-than-penalty');
+      })
+      it('reverts on reported hash but bond less than penalty', async () => {
+        await stealthVault.bond({ value: bond });
+        await stealthVault.reportHash(hash);
+        await expect(stealthVault.validateHash(keeper, hash, bond.add(1)))
+          .to.be.revertedWith('StealthVault::validateHash:bond-less-than-penalty');
+      })
+      describe('on reported hash', async () => {
+        beforeEach('', async () => {
+          await stealthVault.bond({ value: bond });
+          await stealthVault.reportHash(hash);
+        });
+        it('returns false on reported hash', async () => {
+          expect(await stealthVault.callStatic.validateHash(keeper, hash, penalty))
+            .to.be.false;
+        })
+        it('burns keeper bond and reduces totalBonded', async () => {
+          await stealthVault.validateHash(keeper, hash, penalty);
+          expect(await stealthVault.bonded(keeper))
+            .to.eq(0);
+          expect(await stealthVault.totalBonded())
+            .to.eq(0);
+        })
+        it('removes hashReportedBy on reported hash', async () => {
+          await stealthVault.validateHash(keeper, hash, penalty);
+          expect(await stealthVault.hashReportedBy(hash))
+            .to.eq(ZERO_ADDRESS);
+        })
+        it('emtis event', async () => {
+          const tx = await stealthVault.validateHash(keeper, hash, penalty);
+          const event = (await tx.wait()).events[0];
+          expect(event.event).to.eq('BondTaken');
+          expect(event.args._keeper).to.eq(keeper);
+          expect(event.args._penalty).to.eq(penalty);
+          expect(event.args._finalBond).to.eq(0);
+          expect(event.args._reportedBy).to.eq(owner.address);
+        })
+      })
+    })
     
   });
 
   describe('reportHash', async () => {
-    
+    const hash = ethers.utils.formatBytes32String('random-hash');
+    it('reverts already reported hash', async () => {
+      await stealthVault.reportHash(hash);
+      await expect(stealthVault.reportHash(hash))
+        .to.be.revertedWith('StealthVault::reportHash:hash-already-reported');
+    })
+    it('sets msg.sender as hashReportedBy', async () => {
+      await stealthVault.reportHash(hash);
+      expect(await stealthVault.hashReportedBy(hash))
+        .to.eq(owner.address);
+    })
+    it('emits event', async () => {
+      const tx = await stealthVault.reportHash(hash);
+      const event = (await tx.wait()).events[0];
+      expect(event.event).to.eq('ReportedHash');
+      expect(event.args._reportedBy).to.eq(owner.address);
+    })
     
   });
+
+  /*
+  function enableStealthJob(address _job) external override {
+    _setKeeperJob(_job, true);
+  }
+  function enableStealthJobs(address[] calldata _jobs) external override {
+    for (uint i = 0; i < _jobs.length; i++) {
+      _setKeeperJob(_jobs[i], true);
+    }
+  }
+  function disableStealthJob(address _job) external override {
+    _setKeeperJob(_job, false);
+  }
+  function disableStealthJobs(address[] calldata _jobs) external override {
+    for (uint i = 0; i < _jobs.length; i++) {
+      _setKeeperJob(_jobs[i], false);
+    }
+  }
+  */
 });

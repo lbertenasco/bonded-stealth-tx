@@ -16,7 +16,7 @@ contract StealthVault is UtilsReady, IStealthVault {
     mapping(bytes32 => address) public override hashReportedBy;
 
     mapping(address => mapping(address => bool)) internal _keeperStealthJobs;
-    function keeperStealthJobs(address _keeper, address _job) external view override returns (bool _enabled) {
+    function keeperStealthJob(address _keeper, address _job) external view override returns (bool _enabled) {
         return _keeperStealthJobs[_keeper][_job];
     }
 
@@ -24,7 +24,8 @@ contract StealthVault is UtilsReady, IStealthVault {
     uint256 public override totalBonded;
     mapping(address => uint256) public override bonded;
 
-    // TODO Add penalty lock for 1 week to make sure it was not an uncle block. (find a way to make this not a stress on governor)
+    // Penalty lock for 1 week to make sure it was not an uncle block. (find a way to make this not a stress on governor)
+    uint256 public override penaltyReviewPeriod = 1 weeks;
 
     constructor() public UtilsReady() {
     }
@@ -53,15 +54,16 @@ contract StealthVault is UtilsReady, IStealthVault {
         emit Unbonded(msg.sender, _amount, bonded[msg.sender]);
     }
 
-    function _burnBond(address _user, uint256 _amount) internal {
-        bonded[_user] = bonded[_user].sub(_amount);
+    function _burnBond(address _keeper, uint256 _amount) internal {
+        bonded[_keeper] = bonded[_keeper].sub(_amount);
         totalBonded = totalBonded.sub(_amount);
     }
 
     function validateHash(address _keeper, bytes32 _hash, uint256 _penalty) external override returns (bool) {
-        // keeper is required to be an EOA to avoid onc-hain hash generation to bypass penalty
-        // TODO Check how to prevent contract to forward txs from keep3rs to steal the bond
+        // keeper is required to be an EOA to avoid on-chain hash generation to bypass penalty
         require(_keeper == tx.origin, 'StealthVault::validateHash:keeper-should-be-EOA');
+        require(_keeperStealthJobs[_keeper][msg.sender], 'StealthVault::validateHash:keeper-job-not-enabled');
+        require(bonded[_keeper] >= _penalty, 'StealthVault::validateHash:bond-less-than-penalty');
 
         address reportedBy = hashReportedBy[_hash];
         if (reportedBy != address(0)) {

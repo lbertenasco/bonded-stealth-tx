@@ -15,4 +15,4 @@
 
 - tests
 
-- check remaining gas on validate hash to avoid gasLimit exploit to avoid getting penalized
+- check remaining gas on validate hash to avoid gasLimit-error exploit to avoid getting penalized
