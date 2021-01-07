@@ -33,7 +33,7 @@ describe('StealthVault', () => {
 
     it('reverts on no msg.value', async () => {
       await expect(stealthVault.bond())
-        .to.be.revertedWith('StealthVault::bond:msg-value-should-be-greater-than-zero');
+        .to.be.revertedWith('StealthVault::addBond:amount-should-be-greater-than-zero');
     })
     it('adds msg.value to bonded[msg.sender] and totalBonded', async () => {
       const bond = e18;
@@ -103,6 +103,7 @@ describe('StealthVault', () => {
   describe('validateHash', async () => {
     const hash = ethers.utils.formatBytes32String('random-hash');
     const bond = e18;
+    const aliceBond = e18;
     const penalty = e18;
     it('reverts on _keeper not tx.origin', async () => {
       await expect(stealthVault.validateHash(alice.address, hash, penalty))
@@ -128,36 +129,40 @@ describe('StealthVault', () => {
       })
 
       it('reverts on reported hash but no bond', async () => {
-        await stealthVault.reportHash(hash);
+        await stealthVault.connect(alice).bond({ value: aliceBond });
+        await stealthVault.connect(alice).reportHash(hash);
         await expect(stealthVault.validateHash(keeper, hash, penalty))
           .to.be.revertedWith('StealthVault::validateHash:bond-less-than-penalty');
       })
       it('reverts on reported hash but bond less than penalty', async () => {
         await stealthVault.bond({ value: bond });
-        await stealthVault.reportHash(hash);
+        await stealthVault.connect(alice).bond({ value: aliceBond });
+        await stealthVault.connect(alice).reportHash(hash);
         await expect(stealthVault.validateHash(keeper, hash, bond.add(1)))
           .to.be.revertedWith('StealthVault::validateHash:bond-less-than-penalty');
       })
       describe('on reported hash', async () => {
         beforeEach('', async () => {
           await stealthVault.bond({ value: bond });
-          await stealthVault.reportHash(hash);
+          await stealthVault.connect(alice).bond({ value: aliceBond });
+          await stealthVault.connect(alice).reportHash(hash);
         });
         it('returns false on reported hash', async () => {
           expect(await stealthVault.callStatic.validateHash(keeper, hash, penalty))
             .to.be.false;
         })
-        it('burns keeper bond and reduces totalBonded', async () => {
+        it('burns keeper bond and keeps totalBonded', async () => {
           await stealthVault.validateHash(keeper, hash, penalty);
+          const totalBonded = await stealthVault.totalBonded();
           expect(await stealthVault.bonded(keeper))
             .to.eq(0);
           expect(await stealthVault.totalBonded())
-            .to.eq(0);
+            .to.eq(totalBonded);
         })
         it('removes hashReportedBy on reported hash', async () => {
           await stealthVault.validateHash(keeper, hash, penalty);
           expect(await stealthVault.hashReportedBy(hash))
-            .to.eq(ZERO_ADDRESS);
+            .to.eq(alice.address);
         })
         it('emtis event', async () => {
           const tx = await stealthVault.validateHash(keeper, hash, penalty);
@@ -166,7 +171,7 @@ describe('StealthVault', () => {
           expect(event.args._keeper).to.eq(keeper);
           expect(event.args._penalty).to.eq(penalty);
           expect(event.args._finalBond).to.eq(0);
-          expect(event.args._reportedBy).to.eq(owner.address);
+          expect(event.args._reportedBy).to.eq(alice.address);
         })
       })
     })
@@ -175,17 +180,28 @@ describe('StealthVault', () => {
 
   describe('reportHash', async () => {
     const hash = ethers.utils.formatBytes32String('random-hash');
+    let reportBond;
+    before('', async () => {
+      reportBond = await stealthVault.requiredReportBond();
+    });
+    it('reverts if bond is less than required report bond', async () => {
+      await expect(stealthVault.reportHash(hash))
+        .to.be.revertedWith('StealthVault::reportHash:bond-less-than-required-report-bond');
+    })
     it('reverts already reported hash', async () => {
+      await stealthVault.bond({ value: reportBond.mul(2) });
       await stealthVault.reportHash(hash);
       await expect(stealthVault.reportHash(hash))
         .to.be.revertedWith('StealthVault::reportHash:hash-already-reported');
     })
     it('sets msg.sender as hashReportedBy', async () => {
+      await stealthVault.bond({ value: reportBond });
       await stealthVault.reportHash(hash);
       expect(await stealthVault.hashReportedBy(hash))
         .to.eq(owner.address);
     })
     it('emits event', async () => {
+      await stealthVault.bond({ value: reportBond });
       const tx = await stealthVault.reportHash(hash);
       const event = (await tx.wait()).events[0];
       expect(event.event).to.eq('ReportedHash');

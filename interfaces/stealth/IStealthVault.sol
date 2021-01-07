@@ -10,12 +10,26 @@ interface IStealthVault {
     event ReportedHash(bytes32 _hash, address _reportedBy);
     event BondTaken(address _keeper, uint256 _penalty, uint256 _finalBond, address _reportedBy);
 
-    // global
+    // global bond
+    function requiredReportBond() external view returns (uint256 _requiredReportBond);
     function totalBonded() external view returns (uint256 _totalBonded);
-    function penaltyReviewPeriod() external view returns (uint256 _penaltyReviewPeriod);
-    function hashReportedBy(bytes32 _hash) external view returns (address _reportedBy);
-    function keeperStealthJob(address _keeper, address _job) external view returns (bool _enabled);
     function bonded(address _keeper) external view returns (uint256 _bond);
+    // global keeper
+    function keeperStealthJob(address _keeper, address _job) external view returns (bool _enabled);
+    // global hash
+    function hashReportedBy(bytes32 _hash) external view returns (address _reportedBy);
+    function hashPenaltyKeeper(bytes32 _hash) external view returns (address _hashPenaltyKeeper);
+    function hashPenaltyCooldown(bytes32 _hash) external view returns (uint256 _hashPenaltyCooldown);
+    function hashReportedBond(bytes32 _hash) external view returns (uint256 _hashReportedBond);
+    function hashPenaltyAmount(bytes32 _hash) external view returns (uint256 _hashPenaltyAmount);
+    // global penalty
+    function penaltyReviewPeriod() external view returns (uint256 _penaltyReviewPeriod);
+
+    // governor
+    function setPenaltyReviewPeriod(uint256 _penaltyReviewPeriod) external /*onlyGovernor*/;
+    function setRequiredReportBond(uint256 _requiredReportBond) external /*onlyGovernor*/;
+    function transferGovernorBond(address _keeper, uint256 _amount) external /*onlyGovernor*/;
+    function invalidatePenalty(bytes32 _hash) external /*onlyGovernor*/;
 
     // keeper
     function bond() external payable;
@@ -31,5 +45,7 @@ interface IStealthVault {
 
     // watcher
     function reportHash(bytes32 _hash) external;
+    function claimPenalty(bytes32 _hash) external;
+
 
 }
