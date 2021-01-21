@@ -13,6 +13,8 @@
 
 ## Improvements:
 
+- update README (how does it work)
+
 - tests
 
 - check remaining gas on validate hash to avoid gasLimit-error exploit to avoid getting penalized

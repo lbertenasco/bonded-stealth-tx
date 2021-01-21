@@ -7,8 +7,11 @@ interface IStealthVault {
     //events
     event Bonded(address _keeper, uint256 _amount, uint256 _finalBond);
     event Unbonded(address _keeper, uint256 _amount, uint256 _finalBond);
-    event ReportedHash(bytes32 _hash, address _reportedBy);
-    event BondTaken(address _keeper, uint256 _penalty, uint256 _finalBond, address _reportedBy);
+    event ReportedHash(bytes32 _hash, address _reportedBy, uint256 _reportBond);
+    event BondTaken(bytes32 _hash, address _keeper, uint256 _penalty, address _reportedBy);
+    event ValidatedHash(bytes32 _hash, address _keeper, uint256 _penalty);
+    event ClaimedPenalty(bytes32 _hash, address _keeper, address _reportedBy, uint256 _penaltyAmount, uint256 _reportAmount);
+    event InvalidatedPenalty(bytes32 _hash, uint256 _reportAmount);
 
     // global bond
     function requiredReportBond() external view returns (uint256 _requiredReportBond);

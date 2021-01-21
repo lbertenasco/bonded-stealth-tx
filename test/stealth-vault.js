@@ -168,9 +168,9 @@ describe('StealthVault', () => {
           const tx = await stealthVault.validateHash(keeper, hash, penalty);
           const event = (await tx.wait()).events[0];
           expect(event.event).to.eq('BondTaken');
+          expect(event.args._hash).to.eq(hash);
           expect(event.args._keeper).to.eq(keeper);
           expect(event.args._penalty).to.eq(penalty);
-          expect(event.args._finalBond).to.eq(0);
           expect(event.args._reportedBy).to.eq(alice.address);
         })
       })
@@ -205,7 +205,9 @@ describe('StealthVault', () => {
       const tx = await stealthVault.reportHash(hash);
       const event = (await tx.wait()).events[0];
       expect(event.event).to.eq('ReportedHash');
+      expect(event.args._hash).to.eq(hash);
       expect(event.args._reportedBy).to.eq(owner.address);
+      expect(event.args._reportBond).to.eq(reportBond);
     })
     
   });

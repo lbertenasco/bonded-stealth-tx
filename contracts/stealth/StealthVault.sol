@@ -98,15 +98,19 @@ contract StealthVault is UtilsReady, IStealthVault {
             // User reported this TX as public, locking penalty away
             _lockBond(_hash, _keeper, _penalty);
 
-            emit BondTaken(_keeper, _penalty, bonded[_keeper], reportedBy);
-
+            emit BondTaken(_hash, _keeper, _penalty, reportedBy);
             // invalid: has was reported
             return false;
         }
 
+        emit ValidatedHash(_hash, _keeper, _penalty);
         // valid: has was not reported
         return true;
     }
+
+    // TODO ?
+    // function softReportHash(bytes32 _hash) external override {
+    // }
 
     function reportHash(bytes32 _hash) external override {
         require(bonded[msg.sender] >= requiredReportBond, 'StealthVault::reportHash:bond-less-than-required-report-bond');
@@ -117,7 +121,7 @@ contract StealthVault is UtilsReady, IStealthVault {
         
         bonded[msg.sender] = bonded[msg.sender].sub(requiredReportBond);
 
-        emit ReportedHash(_hash, msg.sender);
+        emit ReportedHash(_hash, msg.sender, requiredReportBond);
     }
 
 
@@ -132,6 +136,7 @@ contract StealthVault is UtilsReady, IStealthVault {
         _deleteHashData(_hash);
         
         bonded[reportedBy] = bonded[reportedBy].add(penaltyAmount.add(reportAmount));
+        emit ClaimedPenalty(_hash, keeper, reportedBy, penaltyAmount, reportAmount);
     }
 
     function invalidatePenalty(bytes32 _hash) external override onlyGovernor {
@@ -141,6 +146,7 @@ contract StealthVault is UtilsReady, IStealthVault {
         _deleteHashData(_hash);
 
         bonded[governor] = bonded[governor].add(reportAmount);
+        emit InvalidatedPenalty(_hash, reportAmount);
     }
 
     function _deleteHashData(bytes32 _hash) internal {
