@@ -3,36 +3,33 @@
 pragma solidity >=0.6.8;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@lbertenasco/contract-utils/contracts/utils/UtilsReady.sol";
+import "@openzeppelin/contracts/utils/EnumerableSet.sol";
+import "@lbertenasco/contract-utils/contracts/abstract/UtilsReady.sol";
 
-import '../../interfaces/stealth/IStealthVault.sol';
+import '../interfaces/stealth/IStealthVault.sol';
 
 /*
  * StealthVault
  */
 contract StealthVault is UtilsReady, IStealthVault {
     using SafeMath for uint256;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     // report
-    uint256 public override requiredReportBond = 1 ether / 10; // 0.1 ether
     mapping(bytes32 => address) public override hashReportedBy;
-    mapping(bytes32 => uint256) public override hashReportedBond;
-    // penalty
-    mapping(bytes32 => uint256) public override hashPenaltyAmount;
-    mapping(bytes32 => uint256) public override hashPenaltyCooldown;
-    mapping(bytes32 => address) public override hashPenaltyKeeper;
 
-    mapping(address => mapping(address => bool)) internal _keeperStealthJobs;
-    function keeperStealthJob(address _keeper, address _job) external view override returns (bool _enabled) {
-        return _keeperStealthJobs[_keeper][_job];
+    EnumerableSet.AddressSet internal _keepers;
+    function keeper(address _keeper) external view override returns (bool _enabled) {
+        return _keepers.contains(_keeper);
     }
-
+    mapping(address => EnumerableSet.AddressSet) internal _keeperStealthJobs;
+    function keeperStealthJob(address _keeper, address _job) external view override returns (bool _enabled) {
+        return _keeperStealthJobs[_keeper].contains(_job);
+    }
 
     uint256 public override totalBonded;
     mapping(address => uint256) public override bonded;
-
-    // Penalty lock for 1 week to make sure it was not an uncle block. (find a way to make this not a stress on governor)
-    uint256 public override penaltyReviewPeriod = 1 weeks;
+    mapping(address => uint256) public override keeperLastBondAt;
 
     constructor() public UtilsReady() {
     }
@@ -42,20 +39,29 @@ contract StealthVault is UtilsReady, IStealthVault {
     }
 
     // Governor
-    function setPenaltyReviewPeriod(uint256 _penaltyReviewPeriod) external override onlyGovernor {
-        penaltyReviewPeriod = _penaltyReviewPeriod;
-    }
-    function setRequiredReportBond(uint256 _requiredReportBond) external override onlyGovernor {
-        requiredReportBond = _requiredReportBond;
-    }
     function transferGovernorBond(address _keeper, uint256 _amount) external override onlyGovernor {
         bonded[governor] = bonded[governor].sub(_amount);
         bonded[_keeper] = bonded[_keeper].add(_amount);
     }
 
+    // getters
+    function keepers() external view override returns (address[] memory _keepersList) {
+        _keepersList = new address[](_keepers.length());
+        for (uint256 i; i < _keepers.length(); i++) {
+            _keepersList[i] = _keepers.at(i);
+        }
+    }
+    function keeperJobs(address _keeper) external view override returns (address[] memory _keeperJobsList) {
+        _keeperJobsList = new address[](_keeperStealthJobs[_keeper].length());
+        for (uint256 i; i < _keeperStealthJobs[_keeper].length(); i++) {
+            _keeperJobsList[i] = _keeperStealthJobs[_keeper].at(i);
+        }
+    }
+
     // Bonds
     function bond() external payable override {
         _addBond(msg.sender, msg.value);
+        keeperLastBondAt[msg.sender] = block.timestamp;
     }
     function _addBond(address _keeper, uint256 _amount) internal {
         require(_amount > 0, 'StealthVault::addBond:amount-should-be-greater-than-zero');
@@ -70,6 +76,7 @@ contract StealthVault is UtilsReady, IStealthVault {
 
     function unbond(uint256 _amount) public override {
         require(_amount > 0, 'StealthVault::unbond:amount-should-be-greater-than-zero');
+        require(block.timestamp > keeperLastBondAt[msg.sender].add(4 days), 'StealthVault::unbond:wait-4-days-after-bond');
 
         bonded[msg.sender] = bonded[msg.sender].sub(_amount);
         totalBonded = totalBonded.sub(_amount);
@@ -78,11 +85,11 @@ contract StealthVault is UtilsReady, IStealthVault {
         emit Unbonded(msg.sender, _amount, bonded[msg.sender]);
     }
 
-    function _lockBond(bytes32 _hash, address _keeper, uint256 _amount) internal {
+    function _takeBond(address _keeper, uint256 _amount, address _reportedBy) internal {
         bonded[_keeper] = bonded[_keeper].sub(_amount);
-        hashPenaltyCooldown[_hash] = now.add(penaltyReviewPeriod);
-        hashPenaltyKeeper[_hash] = _keeper;
-        hashPenaltyAmount[_hash] = _amount;
+        uint256 _amountReward = _amount.div(10);
+        bonded[_reportedBy] = bonded[_reportedBy].add(_amountReward);
+        bonded[governor] = bonded[governor].add(_amount.sub(_amountReward));
     }
 
 
@@ -90,13 +97,13 @@ contract StealthVault is UtilsReady, IStealthVault {
     function validateHash(address _keeper, bytes32 _hash, uint256 _penalty) external override returns (bool) {
         // keeper is required to be an EOA to avoid on-chain hash generation to bypass penalty
         require(_keeper == tx.origin, 'StealthVault::validateHash:keeper-should-be-EOA');
-        require(_keeperStealthJobs[_keeper][msg.sender], 'StealthVault::validateHash:keeper-job-not-enabled');
+        require(_keeperStealthJobs[_keeper].contains(msg.sender), 'StealthVault::validateHash:keeper-job-not-enabled');
         require(bonded[_keeper] >= _penalty, 'StealthVault::validateHash:bond-less-than-penalty');
 
         address reportedBy = hashReportedBy[_hash];
         if (reportedBy != address(0)) {
             // User reported this TX as public, locking penalty away
-            _lockBond(_hash, _keeper, _penalty);
+            _takeBond(_keeper, _penalty, reportedBy);
 
             emit BondTaken(_hash, _keeper, _penalty, reportedBy);
             // invalid: has was reported
@@ -108,74 +115,36 @@ contract StealthVault is UtilsReady, IStealthVault {
         return true;
     }
 
-    // TODO ?
-    // function softReportHash(bytes32 _hash) external override {
-    // }
-
     function reportHash(bytes32 _hash) external override {
-        require(bonded[msg.sender] >= requiredReportBond, 'StealthVault::reportHash:bond-less-than-required-report-bond');
         require(hashReportedBy[_hash] == address(0), 'StealthVault::reportHash:hash-already-reported');
-
         hashReportedBy[_hash] = msg.sender;
-        hashReportedBond[_hash] = requiredReportBond;
-        
-        bonded[msg.sender] = bonded[msg.sender].sub(requiredReportBond);
-
-        emit ReportedHash(_hash, msg.sender, requiredReportBond);
+        emit ReportedHash(_hash, msg.sender);
     }
 
 
-    // Penalty
-    function claimPenalty(bytes32 _hash) external override {
-        require(hashPenaltyCooldown[_hash] >= now, 'StealthVault::claimPenalty:hash-penalty-cooldown');
-        address reportedBy = hashReportedBy[_hash];
-        address keeper = hashPenaltyKeeper[_hash];
-        uint256 penaltyAmount = hashPenaltyAmount[_hash];
-        uint256 reportAmount = hashReportedBond[_hash];
-
-        _deleteHashData(_hash);
-        
-        bonded[reportedBy] = bonded[reportedBy].add(penaltyAmount.add(reportAmount));
-        emit ClaimedPenalty(_hash, keeper, reportedBy, penaltyAmount, reportAmount);
-    }
-
-    function invalidatePenalty(bytes32 _hash) external override onlyGovernor {
-        require(hashPenaltyCooldown[_hash] < now, 'StealthVault::invalidatePenalty:hash-penalty-cooldown-expired');
-        uint256 reportAmount = hashReportedBond[_hash];
-
-        _deleteHashData(_hash);
-
-        bonded[governor] = bonded[governor].add(reportAmount);
-        emit InvalidatedPenalty(_hash, reportAmount);
-    }
-
-    function _deleteHashData(bytes32 _hash) internal {
-        delete hashReportedBy[_hash];
-        delete hashReportedBond[_hash];
-        delete hashPenaltyAmount[_hash];
-        delete hashPenaltyCooldown[_hash];
-        delete hashPenaltyKeeper[_hash];
-    }
-
-
-    // Jobs
+    // Keeper Jobs
     function enableStealthJob(address _job) external override {
-        _setKeeperJob(_job, true);
+        _addKeeperJob(_job);
     }
     function enableStealthJobs(address[] calldata _jobs) external override {
         for (uint i = 0; i < _jobs.length; i++) {
-            _setKeeperJob(_jobs[i], true);
+            _addKeeperJob(_jobs[i]);
         }
     }
     function disableStealthJob(address _job) external override {
-        _setKeeperJob(_job, false);
+        _removeKeeperJob(_job);
     }
     function disableStealthJobs(address[] calldata _jobs) external override {
         for (uint i = 0; i < _jobs.length; i++) {
-            _setKeeperJob(_jobs[i], false);
+            _removeKeeperJob(_jobs[i]);
         }
     }
-    function _setKeeperJob(address _job, bool _enabled) internal {
-        _keeperStealthJobs[msg.sender][_job] = _enabled;
+    function _addKeeperJob(address _job) internal {
+        if (!_keepers.contains(msg.sender)) _keepers.add(msg.sender);
+        require(_keeperStealthJobs[msg.sender].add(_job), "StealthVault::addKeeperJob:job-already-added");
+    }
+    function _removeKeeperJob(address _job) internal {
+        require(_keeperStealthJobs[msg.sender].remove(_job), "StealthVault::removeKeeperJob:job-not-found");
+        if (_keeperStealthJobs[msg.sender].length() == 0) _keepers.remove(msg.sender);
     }
 }

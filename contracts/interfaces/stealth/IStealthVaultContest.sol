@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.8;
 
-interface IStealthVault {
+interface IStealthVaultContest {
     function isStealthVault() external pure returns (bool);
 
     //events
