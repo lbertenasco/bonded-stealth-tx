@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.6.8;
+pragma solidity 0.8.4;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@lbertenasco/contract-utils/contracts/abstract/UtilsReady.sol";
 
 import '../interfaces/stealth/IStealthVaultContest.sol';
@@ -11,7 +10,6 @@ import '../interfaces/stealth/IStealthVaultContest.sol';
  * StealthVault
  */
 contract StealthVaultContest is UtilsReady, IStealthVaultContest {
-    using SafeMath for uint256;
 
     // report
     uint256 public override requiredReportBond = 1 ether / 10; // 0.1 ether
@@ -33,7 +31,7 @@ contract StealthVaultContest is UtilsReady, IStealthVaultContest {
     // Penalty lock for 1 week to make sure it was not an uncle block. (find a way to make this not a stress on governor)
     uint256 public override penaltyReviewPeriod = 1 weeks;
 
-    constructor() public UtilsReady() {
+    constructor() UtilsReady() {
     }
 
     function isStealthVault() external pure override returns (bool) {
@@ -48,8 +46,8 @@ contract StealthVaultContest is UtilsReady, IStealthVaultContest {
         requiredReportBond = _requiredReportBond;
     }
     function transferGovernorBond(address _keeper, uint256 _amount) external override onlyGovernor {
-        bonded[governor] = bonded[governor].sub(_amount);
-        bonded[_keeper] = bonded[_keeper].add(_amount);
+        bonded[governor] = bonded[governor] - _amount;
+        bonded[_keeper] = bonded[_keeper] + _amount;
     }
 
     // Bonds
@@ -58,8 +56,8 @@ contract StealthVaultContest is UtilsReady, IStealthVaultContest {
     }
     function _addBond(address _keeper, uint256 _amount) internal {
         require(_amount > 0, 'StealthVault::addBond:amount-should-be-greater-than-zero');
-        bonded[_keeper] = bonded[_keeper].add(_amount);
-        totalBonded = totalBonded.add(_amount);
+        bonded[_keeper] = bonded[_keeper] + _amount;
+        totalBonded = totalBonded + _amount;
         emit Bonded(_keeper, _amount, bonded[_keeper]);
     }
 
@@ -70,16 +68,16 @@ contract StealthVaultContest is UtilsReady, IStealthVaultContest {
     function unbond(uint256 _amount) public override {
         require(_amount > 0, 'StealthVault::unbond:amount-should-be-greater-than-zero');
 
-        bonded[msg.sender] = bonded[msg.sender].sub(_amount);
-        totalBonded = totalBonded.sub(_amount);
+        bonded[msg.sender] = bonded[msg.sender] - _amount;
+        totalBonded = totalBonded - _amount;
 
         payable(msg.sender).transfer(_amount);
         emit Unbonded(msg.sender, _amount, bonded[msg.sender]);
     }
 
     function _lockBond(bytes32 _hash, address _keeper, uint256 _amount) internal {
-        bonded[_keeper] = bonded[_keeper].sub(_amount);
-        hashPenaltyCooldown[_hash] = block.timestamp.add(penaltyReviewPeriod);
+        bonded[_keeper] = bonded[_keeper] - _amount;
+        hashPenaltyCooldown[_hash] = block.timestamp + penaltyReviewPeriod;
         hashPenaltyKeeper[_hash] = _keeper;
         hashPenaltyAmount[_hash] = _amount;
     }
@@ -118,7 +116,7 @@ contract StealthVaultContest is UtilsReady, IStealthVaultContest {
         hashReportedBy[_hash] = msg.sender;
         hashReportedBond[_hash] = requiredReportBond;
         
-        bonded[msg.sender] = bonded[msg.sender].sub(requiredReportBond);
+        bonded[msg.sender] = bonded[msg.sender] - requiredReportBond;
 
         emit ReportedHash(_hash, msg.sender, requiredReportBond);
     }
@@ -134,7 +132,7 @@ contract StealthVaultContest is UtilsReady, IStealthVaultContest {
 
         _deleteHashData(_hash);
         
-        bonded[reportedBy] = bonded[reportedBy].add(penaltyAmount.add(reportAmount));
+        bonded[reportedBy] = bonded[reportedBy] + penaltyAmount + reportAmount;
         emit ClaimedPenalty(_hash, keeper, reportedBy, penaltyAmount, reportAmount);
     }
 
@@ -144,7 +142,7 @@ contract StealthVaultContest is UtilsReady, IStealthVaultContest {
 
         _deleteHashData(_hash);
 
-        bonded[governor] = bonded[governor].add(reportAmount);
+        bonded[governor] = bonded[governor] + reportAmount;
         emit InvalidatedPenalty(_hash, reportAmount);
     }
 

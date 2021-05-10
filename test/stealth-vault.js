@@ -66,7 +66,7 @@ describe('StealthVault', () => {
     })
     it('reverts on higher amount than bond', async () => {
       const bond = e18;
-      await expect(stealthVault.unbond(bond.add(1)))
+      await expect(stealthVault.unbond(bond + 1)))
         .to.be.revertedWith('SafeMath: subtraction overflow');
     })
     it('partially removes bond and totalBonded', async () => {
@@ -74,8 +74,8 @@ describe('StealthVault', () => {
       const removedBond = bond.div(10);
       await stealthVault.bond({ value: bond });
       await stealthVault.unbond(removedBond);
-      expect(await stealthVault.bonded(keeper)).to.eq(bond.sub(removedBond));
-      expect(await stealthVault.totalBonded()).to.eq(bond.sub(removedBond));
+      expect(await stealthVault.bonded(keeper)).to.eq(bond - removedBond));
+      expect(await stealthVault.totalBonded()).to.eq(bond - removedBond));
 
     })
     it('fully removes bond and totalBonded', async () => {
@@ -84,7 +84,7 @@ describe('StealthVault', () => {
       const tx1 = await stealthVault.bond({ value: bond });
       const tx2 = await stealthVault.unbondAll();
       const balanceAfter = await ethers.provider.getBalance(keeper);
-      expect(balance).to.eq(balanceAfter.add(await getTxCost(tx1)).add(await getTxCost(tx2)));
+      expect(balance).to.eq(balanceAfter + await getTxCost(tx1)) + await getTxCost(tx2)));
       expect(await stealthVault.bonded(keeper)).to.eq(0);
       expect(await stealthVault.totalBonded()).to.eq(0);
     })
@@ -138,7 +138,7 @@ describe('StealthVault', () => {
         await stealthVault.bond({ value: bond });
         await stealthVault.connect(alice).bond({ value: aliceBond });
         await stealthVault.connect(alice).reportHash(hash);
-        await expect(stealthVault.validateHash(keeper, hash, bond.add(1)))
+        await expect(stealthVault.validateHash(keeper, hash, bond + 1)))
           .to.be.revertedWith('StealthVault::validateHash:bond-less-than-penalty');
       })
       describe('on reported hash', async () => {
