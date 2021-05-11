@@ -2,6 +2,11 @@
 pragma solidity 0.8.4;
 
 interface IStealthRelayer {
+    function addJobs(address[] calldata _jobsList) external;
+    function addJob(address _job) external;
+    function removeJobs(address[] calldata _jobsList) external;
+    function removeJob(address _job) external;
+
     function execute(
         address _address,
         bytes memory _callData,
