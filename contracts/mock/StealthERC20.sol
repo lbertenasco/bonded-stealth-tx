@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.6.8;
+pragma solidity 0.8.4;
+
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import "@lbertenasco/contract-utils/contracts/utils/Governable.sol";
 import "@lbertenasco/contract-utils/contracts/utils/Manageable.sol";
 import "@lbertenasco/contract-utils/contracts/utils/StealthTx.sol";
 
-contract ERC20Token is ERC20, Governable, Manageable, StealthTx {
+contract StealthERC20 is ERC20, Governable, Manageable, StealthTx {
     constructor(
         string memory _name,
         string memory _symbol,
         uint256 _mintAmount,
         address _stealthVault
-    ) public ERC20(_name, _symbol) Governable(msg.sender) Manageable(msg.sender) StealthTx(_stealthVault) {
+    ) ERC20(_name, _symbol) Governable(msg.sender) Manageable(msg.sender) StealthTx(_stealthVault) {
         _mint(msg.sender, _mintAmount);
     }
 
-    function stealthMint(address _to, uint256 _amount, bytes23 _hash) public validateStealthTx(_hash) returns (bool) {
+    function stealthMint(address _to, uint256 _amount, bytes23 _hash) public validateStealthTx(_hash) returns (bool _error) {
         _mint(_to, _amount);
+        return false;
     }
 
     // StealthTx: restricted-access
