@@ -18,6 +18,8 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
 
     EnumerableSet.AddressSet internal _jobs;
 
+    bool public override forceBlockProtection;
+
     constructor(address _stealthVault) Governable(msg.sender) StealthTx(_stealthVault) {}
 
     function execute(
@@ -27,6 +29,19 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
         uint256 _blockNumber
     ) external payable override onlyValidJob(_job) validateStealthTxAndBlock(_stealthHash, _blockNumber) returns (bytes memory _returnData) {
         return _job.functionCallWithValue(_callData, msg.value, "StealthRelayer::execute:call-reverted");
+    }
+
+    function executeWithoutBlockProtection(
+        address _job,
+        bytes memory _callData,
+        bytes32 _stealthHash
+    ) external payable override onlyValidJob(_job) validateStealthTx(_stealthHash) returns (bytes memory _returnData) {
+        require(!forceBlockProtection, "StealthRelayer::execute:block-protection-required");
+        return _job.functionCallWithValue(_callData, msg.value, "StealthRelayer::execute:call-reverted");
+    }
+
+    function setForceBlockProtection(bool _forceBlockProtection) external override onlyGovernor {
+        forceBlockProtection = _forceBlockProtection;
     }
 
     // Setup trusted contracts to call (jobs)
