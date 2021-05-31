@@ -2,12 +2,12 @@
 
 pragma solidity 0.8.4;
 
-import '@openzeppelin/contracts/utils/Address.sol';
-import '@lbertenasco/contract-utils/contracts/utils/Governable.sol';
 import '@lbertenasco/contract-utils/contracts/utils/CollectableDust.sol';
-import '@lbertenasco/contract-utils/contracts/utils/StealthTx.sol';
+import '@lbertenasco/contract-utils/contracts/utils/Governable.sol';
+import '@openzeppelin/contracts/utils/Address.sol';
 
 import '../interfaces/stealth/IStealthRelayer.sol';
+import './StealthTx.sol';
 
 /*
  * StealthRelayer
