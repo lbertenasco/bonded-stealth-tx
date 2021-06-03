@@ -83,10 +83,6 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     _setPenalty(_penalty);
   }
 
-  function migrateStealthVault() external override onlyGovernor {
-    _migrateStealthVault();
-  }
-
   // Governable: restricted-access
   function setPendingGovernor(address _pendingGovernor) external override onlyGovernor {
     _setPendingGovernor(_pendingGovernor);

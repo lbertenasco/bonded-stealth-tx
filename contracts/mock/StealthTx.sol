@@ -4,13 +4,13 @@ pragma solidity 0.8.4;
 import '../StealthTx.sol';
 
 contract StealthTxMock is StealthTx {
+  event Event();
+
   constructor(address _stealthVault) StealthTx(_stealthVault) { }
 
-  function validateStealthTxModifier(bytes32 _stealthHash) external validateStealthTx(_stealthHash) {
-  }
+  function validateStealthTxModifier(bytes32 _stealthHash) external validateStealthTx(_stealthHash) {}
 
-  function validateStealthTxAndBlockModifier(bytes32 _stealthHash, uint256 _blockNumber) external validateStealthTxAndBlock(_stealthHash, _blockNumber) {
-  }
+  function validateStealthTxAndBlockModifier(bytes32 _stealthHash, uint256 _blockNumber) external validateStealthTxAndBlock(_stealthHash, _blockNumber) {}
 
   function validateStealthTxFunction(bytes32 _stealthHash) external returns (bool) {
     return _validateStealthTx(_stealthHash);
@@ -19,10 +19,9 @@ contract StealthTxMock is StealthTx {
   function validateStealthTxAndBlockFunction(bytes32 _stealthHash, uint256 _blockNumber) external returns (bool) {
     return _validateStealthTxAndBlock(_stealthHash, _blockNumber);
   }
-  
 
-  function migrateStealthVault() external override {
-    _migrateStealthVault();
+  function setStealthVault(address _stealthVault) external {
+    _setStealthVault(_stealthVault);
   }
 
   function setPenalty(uint256 _penalty) external override {

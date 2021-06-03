@@ -39,7 +39,7 @@
     "test:unit:parallel": "yarn test:parallel 'test/unit/**/*.spec.ts'"
   },
   "dependencies": {
-    "@lbertenasco/contract-utils": "0.3.2",
+    "@lbertenasco/contract-utils": "0.3.3",
     "@openzeppelin/contracts": "4.1.0"
   },
   "devDependencies": {
@@ -53,10 +53,10 @@
     "@types/chai-as-promised": "7.1.4",
     "@types/lodash": "4.14.170",
     "@types/mocha": "8.2.2",
-    "@types/node": "15.6.1",
+    "@types/node": "15.12.0",
     "@uniswap/v2-core": "1.0.1",
     "@uniswap/v2-periphery": "1.1.0-beta.0",
-    "aws-sdk": "2.919.0",
+    "aws-sdk": "2.921.0",
     "axios": "0.21.1",
     "chai": "4.3.4",
     "chai-as-promised": "7.1.1",
