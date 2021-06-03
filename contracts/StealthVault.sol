@@ -6,7 +6,7 @@ import '@lbertenasco/contract-utils/contracts/utils/CollectableDust.sol';
 import '@lbertenasco/contract-utils/contracts/utils/Governable.sol';
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
-import '../interfaces/stealth/IStealthVault.sol';
+import './interfaces/IStealthVault.sol';
 
 /*
  * StealthVault

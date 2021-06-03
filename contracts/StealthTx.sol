@@ -4,7 +4,8 @@ pragma solidity 0.8.4;
 
 import '@lbertenasco/bonded-stealth-tx/interfaces/stealth/IStealthVault.sol';
 
-import '../interfaces/stealth/IStealthTx.sol';
+import './interfaces/IStealthTx.sol';
+import './interfaces/IMigratable.sol';
 
 /*
  * StealthTxAbstract
@@ -39,21 +40,21 @@ abstract contract StealthTx is IStealthTx {
   }
 
   function _setStealthVault(address _stealthVault) internal {
-    require(IStealthVault(_stealthVault).isStealthVault(), 'not stealth vault');
+    require(IStealthVault(_stealthVault).isStealthVault(), 'ST: not stealth vault');
     stealthVault = _stealthVault;
     emit StealthVaultSet(_stealthVault);
   }
 
   function _setPenalty(uint256 _penalty) internal {
-    require(_penalty > 0, 'penalty-not-0');
+    require(_penalty > 0, 'ST: zero penalty');
     penalty = _penalty;
     emit PenaltySet(_penalty);
   }
 
   function _migrateStealthVault() internal {
-    // address _migratedTo = IMigratable(stealthVault).migratedTo();
-    // require(_migratedTo != address(0), 'not-migrated');
-    // _setStealthVault(_migratedTo);
-    // emit MigratedStealthVault(_migratedTo);
+    address _migratedTo = IMigratable(stealthVault).migratedTo();
+    require(_migratedTo != address(0), 'not-migrated');
+    _setStealthVault(_migratedTo);
+    emit MigratedStealthVault(_migratedTo);
   }
 }

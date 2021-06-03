@@ -6,7 +6,7 @@ import '@lbertenasco/contract-utils/contracts/utils/CollectableDust.sol';
 import '@lbertenasco/contract-utils/contracts/utils/Governable.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 
-import '../interfaces/stealth/IStealthRelayer.sol';
+import './interfaces/IStealthRelayer.sol';
 import './StealthTx.sol';
 
 /*
