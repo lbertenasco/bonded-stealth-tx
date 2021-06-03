@@ -3,6 +3,7 @@
 pragma solidity 0.8.4;
 
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@lbertenasco/contract-utils/contracts/abstract/UtilsReady.sol';
 
 import '../interfaces/stealth/IStealthVault.sol';
@@ -10,7 +11,7 @@ import '../interfaces/stealth/IStealthVault.sol';
 /*
  * StealthVault
  */
-contract StealthVault is UtilsReady, IStealthVault {
+contract StealthVault is UtilsReady, ReentrancyGuard, IStealthVault {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   // report
@@ -60,7 +61,7 @@ contract StealthVault is UtilsReady, IStealthVault {
   }
 
   // Bonds
-  function bond() external payable override {
+  function bond() external payable override nonReentrant() {
     _addBond(msg.sender, msg.value);
     callerLastBondAt[msg.sender] = block.timestamp;
   }
@@ -72,11 +73,15 @@ contract StealthVault is UtilsReady, IStealthVault {
     emit Bonded(_caller, _amount, bonded[_caller]);
   }
 
-  function unbondAll() external override {
-    unbond(bonded[msg.sender]);
+  function unbondAll() external override nonReentrant() {
+    _unbond(bonded[msg.sender]);
   }
 
-  function unbond(uint256 _amount) public override {
+  function unbond(uint256 _amount) public override nonReentrant() {
+    _unbond(_amount);
+  }
+
+  function _unbond(uint256 _amount) internal {
     require(_amount > 0, 'StealthVault::unbond:amount-should-be-greater-than-zero');
     require(block.timestamp > callerLastBondAt[msg.sender] + 4 days, 'StealthVault::unbond:wait-4-days-after-bond');
 
@@ -103,7 +108,7 @@ contract StealthVault is UtilsReady, IStealthVault {
     address _caller,
     bytes32 _hash,
     uint256 _penalty
-  ) external override returns (bool) {
+  ) external override nonReentrant() returns (bool) {
     // caller is required to be an EOA to avoid on-chain hash generation to bypass penalty
     require(_caller == tx.origin, 'StealthVault::validateHash:caller-should-be-EOA');
     require(_callerStealthJobs[_caller].contains(msg.sender), 'StealthVault::validateHash:caller-job-not-enabled');
@@ -124,28 +129,28 @@ contract StealthVault is UtilsReady, IStealthVault {
     return true;
   }
 
-  function reportHash(bytes32 _hash) external override {
+  function reportHash(bytes32 _hash) external override nonReentrant() {
     require(hashReportedBy[_hash] == address(0), 'StealthVault::reportHash:hash-already-reported');
     hashReportedBy[_hash] = msg.sender;
     emit ReportedHash(_hash, msg.sender);
   }
 
   // Caller Jobs
-  function enableStealthJob(address _job) external override {
+  function enableStealthJob(address _job) external override nonReentrant() {
     _addCallerJob(_job);
   }
 
-  function enableStealthJobs(address[] calldata _jobs) external override {
+  function enableStealthJobs(address[] calldata _jobs) external override nonReentrant() {
     for (uint256 i = 0; i < _jobs.length; i++) {
       _addCallerJob(_jobs[i]);
     }
   }
 
-  function disableStealthJob(address _job) external override {
+  function disableStealthJob(address _job) external override nonReentrant() {
     _removeCallerJob(_job);
   }
 
-  function disableStealthJobs(address[] calldata _jobs) external override {
+  function disableStealthJobs(address[] calldata _jobs) external override nonReentrant() {
     for (uint256 i = 0; i < _jobs.length; i++) {
       _removeCallerJob(_jobs[i]);
     }
