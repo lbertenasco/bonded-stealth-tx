@@ -5,13 +5,14 @@ pragma solidity 0.8.4;
 import '@lbertenasco/contract-utils/contracts/utils/CollectableDust.sol';
 import '@lbertenasco/contract-utils/contracts/utils/Governable.sol';
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 
 import '../interfaces/stealth/IStealthVault.sol';
 
 /*
  * StealthVault
  */
-contract StealthVault is Governable, CollectableDust, IStealthVault {
+contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthVault {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   uint256 public override totalBonded;
@@ -53,7 +54,7 @@ contract StealthVault is Governable, CollectableDust, IStealthVault {
     return _callerStealthJobs[_caller].contains(_job);
   }
 
-  function bond() external payable override {
+  function bond() external payable override nonReentrant() {
     require(msg.value > 0, 'SV: bond more than zero');
     bonded[msg.sender] = bonded[msg.sender] + msg.value;
     totalBonded = totalBonded + msg.value;
@@ -65,7 +66,7 @@ contract StealthVault is Governable, CollectableDust, IStealthVault {
     unbond(bonded[msg.sender]);
   }
 
-  function unbond(uint256 _amount) public override {
+  function unbond(uint256 _amount) public override nonReentrant() {
     require(_amount > 0, 'SV: more than zero');
     require(_amount <= bonded[msg.sender], 'SV: amount too high');
     require(uint32(block.timestamp) > callerLastBondAt[msg.sender] + 4 days, 'SV: bond cooldown');
@@ -93,7 +94,7 @@ contract StealthVault is Governable, CollectableDust, IStealthVault {
     address _caller,
     bytes32 _hash,
     uint256 _penalty
-  ) external override returns (bool _isValid) {
+  ) external override nonReentrant() returns (bool) {
     // caller is required to be an EOA to avoid on-chain hash generation to bypass penalty
     require(_caller == tx.origin, 'SV: not eoa');
     require(_callerStealthJobs[_caller].contains(msg.sender), 'SV: job not enabled');
@@ -114,28 +115,28 @@ contract StealthVault is Governable, CollectableDust, IStealthVault {
     return true;
   }
 
-  function reportHash(bytes32 _hash) external override {
+  function reportHash(bytes32 _hash) external override nonReentrant() {
     require(hashReportedBy[_hash] == address(0), 'SV: hash already reported');
     hashReportedBy[_hash] = msg.sender;
     emit ReportedHash(_hash, msg.sender);
   }
 
   // Caller Jobs
-  function enableStealthJob(address _job) external override {
+  function enableStealthJob(address _job) external override nonReentrant() {
     _addCallerJob(_job);
   }
 
-  function enableStealthJobs(address[] calldata _jobs) external override {
+  function enableStealthJobs(address[] calldata _jobs) external override nonReentrant() {
     for (uint256 i = 0; i < _jobs.length; i++) {
       _addCallerJob(_jobs[i]);
     }
   }
 
-  function disableStealthJob(address _job) external override {
+  function disableStealthJob(address _job) external override nonReentrant() {
     _removeCallerJob(_job);
   }
 
-  function disableStealthJobs(address[] calldata _jobs) external override {
+  function disableStealthJobs(address[] calldata _jobs) external override nonReentrant() {
     for (uint256 i = 0; i < _jobs.length; i++) {
       _removeCallerJob(_jobs[i]);
     }

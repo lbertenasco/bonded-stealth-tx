@@ -2,32 +2,28 @@
 pragma solidity 0.8.4;
 
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
-import "@lbertenasco/contract-utils/contracts/utils/Governable.sol";
-import "@lbertenasco/contract-utils/contracts/utils/Manageable.sol";
-import "@lbertenasco/contract-utils/contracts/utils/StealthTx.sol";
+import '@lbertenasco/contract-utils/contracts/utils/Governable.sol';
+import '@lbertenasco/contract-utils/contracts/utils/Manageable.sol';
+import '../utils/OnlyStealthRelayer.sol';
 
-contract StealthERC20 is ERC20, Governable, Manageable, StealthTx {
+contract StealthERC20 is ERC20, Governable, Manageable, OnlyStealthRelayer {
     constructor(
         string memory _name,
         string memory _symbol,
         uint256 _mintAmount,
-        address _stealthVault
-    ) ERC20(_name, _symbol) Governable(msg.sender) Manageable(msg.sender) StealthTx(_stealthVault) {
+        address _stealthRelayer
+    ) ERC20(_name, _symbol) Governable(msg.sender) Manageable(msg.sender) OnlyStealthRelayer(_stealthRelayer) {
         _mint(msg.sender, _mintAmount);
     }
 
-    function stealthMint(address _to, uint256 _amount, bytes23 _hash) public validateStealthTx(_hash) returns (bool _error) {
+    function stealthMint(address _to, uint256 _amount) public onlyStealthRelayer returns (bool _error) {
         _mint(_to, _amount);
         return false;
     }
 
-    // StealthTx: restricted-access
-    function setPenalty(uint256 _penalty) external override onlyGovernor {
-        _setPenalty(_penalty);
-    }
-
-    function migrateStealthVault() external override onlyManager {
-        _migrateStealthVault();
+    // Stealth Relayer Setters
+    function setStealthRelayer(address _stealthRelayer) external override onlyGovernor {
+        _setStealthRelayer(_stealthRelayer);
     }
 
     // Governable: restricted-access
