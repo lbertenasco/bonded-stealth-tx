@@ -8,7 +8,7 @@ interface IStealthVault {
   event Bonded(address _caller, uint256 _amount, uint256 _finalBond);
   event Unbonded(address _caller, uint256 _amount, uint256 _finalBond);
   event ReportedHash(bytes32 _hash, address _reportedBy);
-  event BondTaken(bytes32 _hash, address _caller, uint256 _penalty, address _reportedBy);
+  event PenaltyApplied(bytes32 _hash, address _caller, uint256 _penalty, address _reportedBy);
   event ValidatedHash(bytes32 _hash, address _caller, uint256 _penalty);
 
   // getters
@@ -21,7 +21,7 @@ interface IStealthVault {
 
   function bonded(address _caller) external view returns (uint256 _bond);
 
-  function callerLastBondAt(address _caller) external view returns (uint256 _lastBondAt);
+  function callerLastBondAt(address _caller) external view returns (uint32 _lastBondAt);
 
   // global caller
   function caller(address _caller) external view returns (bool _enabled);
