@@ -1,6 +1,5 @@
 import { Contract, ContractFactory } from '@ethersproject/contracts';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { BigNumber } from 'ethers';
 import { ethers } from 'hardhat';
 
 const { expect } = require('chai');
