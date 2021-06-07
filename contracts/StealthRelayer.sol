@@ -6,7 +6,7 @@ import '@lbertenasco/contract-utils/contracts/utils/CollectableDust.sol';
 import '@lbertenasco/contract-utils/contracts/utils/Governable.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 
-import '../interfaces/stealth/IStealthRelayer.sol';
+import './interfaces/IStealthRelayer.sol';
 import './StealthTx.sol';
 
 /*
@@ -81,10 +81,6 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
   // StealthTx: restricted-access
   function setPenalty(uint256 _penalty) external override onlyGovernor {
     _setPenalty(_penalty);
-  }
-
-  function migrateStealthVault() external override onlyGovernor {
-    _migrateStealthVault();
   }
 
   // Governable: restricted-access

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.4;
 
-import '../stealth/StealthVault.sol';
+import '../StealthVault.sol';
 
 contract StealthVaultMock is StealthVault {
   using EnumerableSet for EnumerableSet.AddressSet;
