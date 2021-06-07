@@ -28,7 +28,7 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     bytes32 _stealthHash,
     uint256 _blockNumber
   ) external payable override onlyValidJob(_job) validateStealthTxAndBlock(_stealthHash, _blockNumber) returns (bytes memory _returnData) {
-    return _job.functionCallWithValue(_callData, msg.value, 'StealthRelayer::execute:call-reverted');
+    return _job.functionCallWithValue(_callData, msg.value, 'SR: call reverted');
   }
 
   function executeWithoutBlockProtection(
@@ -36,12 +36,19 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     bytes memory _callData,
     bytes32 _stealthHash
   ) external payable override onlyValidJob(_job) validateStealthTx(_stealthHash) returns (bytes memory _returnData) {
-    require(!forceBlockProtection, 'StealthRelayer::execute:block-protection-required');
-    return _job.functionCallWithValue(_callData, msg.value, 'StealthRelayer::execute:call-reverted');
+    require(!forceBlockProtection, 'SR: block protection required');
+    return _job.functionCallWithValue(_callData, msg.value, 'SR: call reverted');
   }
 
   function setForceBlockProtection(bool _forceBlockProtection) external override onlyGovernor {
     forceBlockProtection = _forceBlockProtection;
+  }
+
+  function jobs() external view override returns (address[] memory _jobsList) {
+    _jobsList = new address[](_jobs.length());
+    for (uint256 i; i < _jobs.length(); i++) {
+      _jobsList[i] = _jobs.at(i);
+    }
   }
 
   // Setup trusted contracts to call (jobs)
@@ -56,7 +63,7 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
   }
 
   function _addJob(address _job) internal {
-    require(_jobs.add(_job), 'StealthRelayer::addJob:job-already-added');
+    require(_jobs.add(_job), 'SR: job already added');
   }
 
   function removeJobs(address[] calldata _jobsList) external override onlyGovernor {
@@ -70,17 +77,21 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
   }
 
   function _removeJob(address _job) internal {
-    require(_jobs.remove(_job), 'StealthRelayer::removeJob:invalid-job');
+    require(_jobs.remove(_job), 'SR: job not found');
   }
 
   modifier onlyValidJob(address _job) {
-    require(_jobs.contains(_job), 'StealthRelayer::onlyValidJob:invalid-job');
+    require(_jobs.contains(_job), 'SR: invalid job');
     _;
   }
 
   // StealthTx: restricted-access
   function setPenalty(uint256 _penalty) external override onlyGovernor {
     _setPenalty(_penalty);
+  }
+
+  function setStealthVault(address _stealthVault) external override onlyGovernor {
+    _setStealthVault(_stealthVault);
   }
 
   // Governable: restricted-access

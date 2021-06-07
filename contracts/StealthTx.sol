@@ -9,8 +9,8 @@ import './interfaces/IStealthTx.sol';
  * StealthTxAbstract
  */
 abstract contract StealthTx is IStealthTx {
-  address public stealthVault;
-  uint256 public penalty = 1 ether;
+  address public override stealthVault;
+  uint256 public override penalty = 1 ether;
 
   constructor(address _stealthVault) {
     _setStealthVault(_stealthVault);
