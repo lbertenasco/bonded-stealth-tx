@@ -82,7 +82,7 @@ describe('e2e: StealthVault', () => {
         stealthHash, // bytes32 _stealthHash,
         blockNumber + 1 // uint256 _blockNumber
       )
-    ).to.be.revertedWith('incorrect-block-number');
+    ).to.be.revertedWith('ST: wrong block');
 
     // bob reports the hash (just for this test, hash is the same alice preiously used)
     await stealthVault.connect(bob).reportHash(stealthHash);
