@@ -20,7 +20,12 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
 
   bool public override forceBlockProtection;
 
-  constructor(address _stealthVault) Governable(msg.sender) StealthTx(_stealthVault) {}
+  constructor(address _governor, address _stealthVault) Governable(_governor) StealthTx(_stealthVault) {}
+
+  modifier onlyValidJob(address _job) {
+    require(_jobs.contains(_job), 'SR: invalid job');
+    _;
+  }
 
   function execute(
     address _job,
@@ -78,11 +83,6 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
 
   function _removeJob(address _job) internal {
     require(_jobs.remove(_job), 'SR: job not found');
-  }
-
-  modifier onlyValidJob(address _job) {
-    require(_jobs.contains(_job), 'SR: invalid job');
-    _;
   }
 
   // StealthTx: restricted-access

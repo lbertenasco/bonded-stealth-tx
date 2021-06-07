@@ -26,6 +26,7 @@ describe('e2e: StealthVault', () => {
   beforeEach('StealthVault', async () => {
     stealthVault = await stealthVaultFactory.deploy();
     stealthRelayer = await stealthRelayerFactory.deploy(
+      owner.address, // address governor
       stealthVault.address // address _stealthVault
     );
     stealthERC20 = await stealthERC20Factory.deploy(
