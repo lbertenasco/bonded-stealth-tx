@@ -17,13 +17,11 @@ abstract contract StealthTx is IStealthTx {
   }
 
   modifier validateStealthTx(bytes32 _stealthHash) {
-    // if not valid, do not revert execution. just return.
     if (!_validateStealthTx(_stealthHash)) return;
     _;
   }
 
   modifier validateStealthTxAndBlock(bytes32 _stealthHash, uint256 _blockNumber) {
-    // if not valid, do not revert execution. just return.
     if (!_validateStealthTxAndBlock(_stealthHash, _blockNumber)) return;
     _;
   }
@@ -33,7 +31,7 @@ abstract contract StealthTx is IStealthTx {
   }
 
   function _validateStealthTxAndBlock(bytes32 _stealthHash, uint256 _blockNumber) internal returns (bool) {
-    require(block.number == _blockNumber, 'incorrect-block-number');
+    require(block.number == _blockNumber, 'ST: wrong block');
     return _validateStealthTx(_stealthHash);
   }
 

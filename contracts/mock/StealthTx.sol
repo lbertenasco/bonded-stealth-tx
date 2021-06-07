@@ -8,9 +8,13 @@ contract StealthTxMock is StealthTx {
 
   constructor(address _stealthVault) StealthTx(_stealthVault) { }
 
-  function validateStealthTxModifier(bytes32 _stealthHash) external validateStealthTx(_stealthHash) {}
+  function validateStealthTxModifier(bytes32 _stealthHash) external validateStealthTx(_stealthHash) {
+    emit Event();
+  }
 
-  function validateStealthTxAndBlockModifier(bytes32 _stealthHash, uint256 _blockNumber) external validateStealthTxAndBlock(_stealthHash, _blockNumber) {}
+  function validateStealthTxAndBlockModifier(bytes32 _stealthHash, uint256 _blockNumber) external validateStealthTxAndBlock(_stealthHash, _blockNumber) {
+    emit Event();
+  }
 
   function validateStealthTxFunction(bytes32 _stealthHash) external returns (bool) {
     return _validateStealthTx(_stealthHash);

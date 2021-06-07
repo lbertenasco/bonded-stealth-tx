@@ -123,7 +123,7 @@ describe('StealthTx', () => {
         validateStealthTxModifier = await stealthTx.validateStealthTxModifier(hash);
       });
       then('executes', async () => {
-        await expectNoEventWithName(validateStealthTxModifier, 'Event');
+        await expect(validateStealthTxModifier).to.emit(stealthTx, 'Event');
       });
     });
   });
@@ -135,13 +135,13 @@ describe('StealthTx', () => {
   }: {
     stealthVaultMock: () => MockContract;
     funcAndSignature: string;
-    args: any[];
+    args: () => Promise<any[]>;
   }) => {
     let response: boolean;
     when('stealth vault returns false when validating tx', () => {
       given(async () => {
         await stealthVaultMock().mock.validateHash.returns(false);
-        response = await stealthTx.callStatic[funcAndSignature](...args);
+        response = await stealthTx.callStatic[funcAndSignature](...(await args()));
       });
       then('returns false', () => {
         expect(response).to.be.false;
@@ -150,7 +150,7 @@ describe('StealthTx', () => {
     when('stealth vault returns true when validating tx', () => {
       given(async () => {
         await stealthVaultMock().mock.validateHash.returns(true);
-        response = await stealthTx.callStatic[funcAndSignature](...args);
+        response = await stealthTx.callStatic[funcAndSignature](...(await args()));
       });
       then('returns true', () => {
         expect(response).to.be.true;
@@ -167,25 +167,72 @@ describe('StealthTx', () => {
     behavesLikeValidateStealthTx({
       stealthVaultMock: () => stealthVaultMock,
       funcAndSignature: 'validateStealthTxFunction(bytes32)',
-      args: [hash],
+      args: async () => [hash],
     });
   });
 
   describe('validateStealthTxAndBlock - Modifier', () => {
+    let stealthVaultMock: MockContract;
+    const hash = utils.formatBytes32String('some-hash');
+    given(async () => {
+      stealthVaultMock = await deployStealthVaultMock();
+    });
+    when('validating stealth tx and block with wrong block number', () => {
+      let validateStealthTxAndBlockModifierTx: Promise<TransactionResponse>;
+      given(async () => {
+        const currentBlockNumber = await ethers.provider.getBlockNumber();
+        validateStealthTxAndBlockModifierTx = stealthTx.validateStealthTxAndBlockModifier(hash, currentBlockNumber + 10);
+      });
+      then('tx is reverted with reason', async () => {
+        await expect(validateStealthTxAndBlockModifierTx).to.be.revertedWith('ST: wrong block');
+      });
+    });
     when('validate stealth tx and block returns false', () => {
-      then('stops execution');
+      let validateStealthTxAndBlockModifierTx: TransactionResponse;
+      given(async () => {
+        await stealthVaultMock.mock.validateHash.returns(false);
+        const currentBlockNumber = await ethers.provider.getBlockNumber();
+        validateStealthTxAndBlockModifierTx = await stealthTx.validateStealthTxAndBlockModifier(hash, currentBlockNumber + 1);
+      });
+      then('stops execution', async () => {
+        await expectNoEventWithName(validateStealthTxAndBlockModifierTx, 'Event');
+      });
     });
     when('validate stealth tx and block returns true', () => {
-      then('executes');
+      let validateStealthTxAndBlockModifierTx: TransactionResponse;
+      given(async () => {
+        await stealthVaultMock.mock.validateHash.returns(true);
+        const currentBlockNumber = await ethers.provider.getBlockNumber();
+        validateStealthTxAndBlockModifierTx = await stealthTx.validateStealthTxAndBlockModifier(hash, currentBlockNumber + 1);
+      });
+      then('executes', async () => {
+        await expect(validateStealthTxAndBlockModifierTx).to.emit(stealthTx, 'Event');
+      });
     });
   });
 
   describe('validateStealthTxAndBlock - Function', () => {
+    let stealthVaultMock: MockContract;
+    const hash = utils.formatBytes32String('some-hash');
+    given(async () => {
+      stealthVaultMock = await deployStealthVaultMock();
+    });
     when('block is not current block number', () => {
-      then('returns false');
+      let validateStealthTxAndBlockFunctionTx: Promise<TransactionResponse>;
+      given(async () => {
+        const currentBlockNumber = await ethers.provider.getBlockNumber();
+        validateStealthTxAndBlockFunctionTx = stealthTx.validateStealthTxAndBlockFunction(hash, currentBlockNumber + 10);
+      });
+      then('tx is reverted with reason', async () => {
+        await expect(validateStealthTxAndBlockFunctionTx).to.be.revertedWith('ST: wrong block');
+      });
     });
     when('block is current block number', () => {
-      // behavesLikeValidateStealthTx();
+      behavesLikeValidateStealthTx({
+        stealthVaultMock: () => stealthVaultMock,
+        funcAndSignature: 'validateStealthTxAndBlockFunction(bytes32,uint256)',
+        args: async () => [hash, await ethers.provider.getBlockNumber()],
+      });
     });
   });
 });
