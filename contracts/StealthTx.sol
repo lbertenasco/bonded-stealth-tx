@@ -33,7 +33,7 @@ abstract contract StealthTx is IStealthTx {
   }
 
   function _validateStealthTxAndBlock(bytes32 _stealthHash, uint256 _blockNumber) internal returns (bool) {
-    if (block.number != _blockNumber) return false;
+    require(block.number == _blockNumber, 'incorrect-block-number');
     return _validateStealthTx(_stealthHash);
   }
 

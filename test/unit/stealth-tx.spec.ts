@@ -13,7 +13,7 @@ import { expect } from 'chai';
 import StealthVault from '../../artifacts/contracts/StealthVault.sol/StealthVault.json';
 import { expectNoEventWithName } from '../utils/event-utils';
 
-describe.only('StealthTx', () => {
+describe('StealthTx', () => {
   let governor: SignerWithAddress;
   let forceETHFactory: ContractFactory;
   let stealthTxFactory: ContractFactory;
