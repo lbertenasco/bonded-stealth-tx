@@ -24,7 +24,7 @@ contract StealthTxMock is StealthTx {
     return _validateStealthTxAndBlock(_stealthHash, _blockNumber);
   }
 
-  function setStealthVault(address _stealthVault) external {
+  function setStealthVault(address _stealthVault) external override {
     _setStealthVault(_stealthVault);
   }
 

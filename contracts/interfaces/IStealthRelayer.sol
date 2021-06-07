@@ -4,6 +4,8 @@ pragma solidity 0.8.4;
 interface IStealthRelayer {
   function forceBlockProtection() external view returns (bool _forceBlockProtection);
 
+  function jobs() external view returns (address[] memory _jobsList);
+
   function setForceBlockProtection(bool _forceBlockProtection) external;
 
   function addJobs(address[] calldata _jobsList) external;
