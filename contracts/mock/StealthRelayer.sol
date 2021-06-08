@@ -5,7 +5,10 @@ import '../StealthRelayer.sol';
 
 contract StealthRelayerMock is StealthRelayer {
 
-  constructor(address _governor, address _stealthVault) StealthRelayer(_governor, _stealthVault) { }
+  constructor(address _governor, address _stealthVault) StealthRelayer(_stealthVault) {
+    // force change governor only for mocked contract
+    governor = _governor;
+  }
 
   function onlyValidJobModifier(address _job) external onlyValidJob(_job) {}
 

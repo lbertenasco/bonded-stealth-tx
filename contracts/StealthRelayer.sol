@@ -20,7 +20,7 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
 
   bool public override forceBlockProtection;
 
-  constructor(address _governor, address _stealthVault) Governable(_governor) StealthTx(_stealthVault) {}
+  constructor(address _stealthVault) Governable(msg.sender) StealthTx(_stealthVault) {}
 
   modifier onlyValidJob(address _job) {
     require(_jobs.contains(_job), 'SR: invalid job');
