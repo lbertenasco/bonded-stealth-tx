@@ -1,11 +1,8 @@
 import { Contract, ContractFactory } from '@ethersproject/contracts';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
-
-const { expect } = require('chai');
-const { ZERO_ADDRESS, getTxCost } = require('../../utils/web3-utils');
-
-const e18 = ethers.BigNumber.from(10).pow(18);
+import { expect } from 'chai';
+import { utils } from 'ethers';
 
 describe('e2e: StealthVault', () => {
   let owner: SignerWithAddress, alice: SignerWithAddress, bob: SignerWithAddress;
@@ -16,7 +13,7 @@ describe('e2e: StealthVault', () => {
   let stealthRelayer: Contract;
   let stealthERC20Factory: ContractFactory;
   let stealthERC20: Contract;
-  const penalty = e18;
+  const penalty = utils.parseEther('1');
 
   before('Setup accounts and contracts', async () => {
     [owner, alice, bob] = await ethers.getSigners();
@@ -29,12 +26,13 @@ describe('e2e: StealthVault', () => {
   beforeEach('StealthVault', async () => {
     stealthVault = await stealthVaultFactory.deploy();
     stealthRelayer = await stealthRelayerFactory.deploy(
+      owner.address, // address governor
       stealthVault.address // address _stealthVault
     );
     stealthERC20 = await stealthERC20Factory.deploy(
       'stealth token', // string memory _name,
       'sToken', // string memory _symbol,
-      e18.mul(1_000_000), // uint256 _mintAmount,
+      utils.parseEther('1000000'), // uint256 _mintAmount,
       stealthRelayer.address // address _stealthRelayer
     );
 
@@ -61,7 +59,7 @@ describe('e2e: StealthVault', () => {
     expect(aliceJobs).to.be.deep.eq([stealthRelayer.address]);
 
     // call stealthERC20 through stealth relayer
-    const mintAmount = e18.mul(100);
+    const mintAmount = utils.parseEther('100');
     const rawTx = await stealthERC20.connect(alice).populateTransaction.stealthMint(alice.address, mintAmount);
     const callData = rawTx.data;
 
@@ -85,7 +83,7 @@ describe('e2e: StealthVault', () => {
         stealthHash, // bytes32 _stealthHash,
         blockNumber + 1 // uint256 _blockNumber
       )
-    ).to.be.revertedWith('incorrect-block-number');
+    ).to.be.revertedWith('ST: wrong block');
 
     // bob reports the hash (just for this test, hash is the same alice preiously used)
     await stealthVault.connect(bob).reportHash(stealthHash);

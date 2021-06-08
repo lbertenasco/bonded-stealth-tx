@@ -6,11 +6,7 @@ import { BigNumber, BigNumberish, utils, Wallet } from 'ethers';
 import { ethers } from 'hardhat';
 import { given, then, when } from '../utils/bdd';
 import { constants, wallet } from '../utils';
-
-const { expect } = require('chai');
-const { ZERO_ADDRESS, getTxCost } = require('../../utils/web3-utils');
-
-const e18 = ethers.BigNumber.from(10).pow(18);
+import { expect } from 'chai';
 
 describe('StealthVault', () => {
   let governor: SignerWithAddress;
@@ -31,7 +27,7 @@ describe('StealthVault', () => {
   });
 
   it('reverts when sending eth', async () => {
-    await expect(governor.sendTransaction({ to: stealthVault.address, value: e18 })).to.be.revertedWith(
+    await expect(governor.sendTransaction({ to: stealthVault.address, value: utils.parseEther('1') })).to.be.revertedWith(
       "function selector was not recognized and there's no fallback nor receive function"
     );
   });

@@ -7,7 +7,7 @@ import '@lbertenasco/contract-utils/contracts/utils/Governable.sol';
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 
-import '../interfaces/stealth/IStealthVault.sol';
+import './interfaces/IStealthVault.sol';
 
 /*
  * StealthVault
@@ -95,7 +95,8 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     bytes32 _hash,
     uint256 _penalty
   ) external override nonReentrant() returns (bool) {
-    // caller is required to be an EOA to avoid on-chain hash generation to bypass penalty
+    // Caller is required to be an EOA to avoid on-chain hash generation to bypass penalty.
+    // solhint-disable-next-line avoid-tx-origin
     require(_caller == tx.origin, 'SV: not eoa');
     require(_callerStealthJobs[_caller].contains(msg.sender), 'SV: job not enabled');
     require(bonded[_caller] >= _penalty, 'SV: not enough bonded');
@@ -106,10 +107,10 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
       _penalize(_caller, _penalty, reportedBy);
 
       emit PenaltyApplied(_hash, _caller, _penalty, reportedBy);
+
       // invalid: has was reported
       return false;
     }
-
     emit ValidatedHash(_hash, _caller, _penalty);
     // valid: has was not reported
     return true;
