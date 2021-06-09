@@ -117,6 +117,15 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
   }
 
   function reportHash(bytes32 _hash) external override nonReentrant() {
+    _reportHash(_hash);
+  }
+
+  function reportHashAndPay(bytes32 _hash) external payable override nonReentrant() {
+    _reportHash(_hash);
+    block.coinbase.transfer(msg.value);
+  }
+
+  function _reportHash(bytes32 _hash) internal {
     require(hashReportedBy[_hash] == address(0), 'SV: hash already reported');
     hashReportedBy[_hash] = msg.sender;
     emit ReportedHash(_hash, msg.sender);
