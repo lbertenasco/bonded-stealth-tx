@@ -33,7 +33,18 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     bytes32 _stealthHash,
     uint256 _blockNumber
   ) external payable override onlyValidJob(_job) validateStealthTxAndBlock(_stealthHash, _blockNumber) returns (bytes memory _returnData) {
-    return _job.functionCallWithValue(_callData, msg.value, 'SR: call reverted');
+    return _callWithValue(_job, _callData, msg.value);
+  }
+
+  function executeAndPay(
+    address _job,
+    bytes memory _callData,
+    bytes32 _stealthHash,
+    uint256 _blockNumber,
+    uint256 _payment
+  ) external payable override onlyValidJob(_job) validateStealthTxAndBlock(_stealthHash, _blockNumber) returns (bytes memory _returnData) {
+    _returnData = _callWithValue(_job, _callData, msg.value - _payment);
+    block.coinbase.transfer(_payment);
   }
 
   function executeWithoutBlockProtection(
@@ -42,7 +53,26 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     bytes32 _stealthHash
   ) external payable override onlyValidJob(_job) validateStealthTx(_stealthHash) returns (bytes memory _returnData) {
     require(!forceBlockProtection, 'SR: block protection required');
-    return _job.functionCallWithValue(_callData, msg.value, 'SR: call reverted');
+    return _callWithValue(_job, _callData, msg.value);
+  }
+
+  function executeWithoutBlockProtectionAndPay(
+    address _job,
+    bytes memory _callData,
+    bytes32 _stealthHash,
+    uint256 _payment
+  ) external payable override onlyValidJob(_job) validateStealthTx(_stealthHash) returns (bytes memory _returnData) {
+    require(!forceBlockProtection, 'SR: block protection required');
+    _returnData = _callWithValue(_job, _callData, msg.value - _payment);
+    block.coinbase.transfer(_payment);
+  }
+
+  function _callWithValue(
+    address _job,
+    bytes memory _callData,
+    uint256 _value
+  ) internal returns (bytes memory _returnData) {
+    return _job.functionCallWithValue(_callData, _value, 'SR: call reverted');
   }
 
   function setForceBlockProtection(bool _forceBlockProtection) external override onlyGovernor {
