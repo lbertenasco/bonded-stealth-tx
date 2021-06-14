@@ -61,4 +61,6 @@ interface IStealthVault {
 
   // watcher
   function reportHash(bytes32 _hash) external;
+
+  function reportHashAndPay(bytes32 _hash) external payable;
 }

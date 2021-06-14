@@ -23,9 +23,24 @@ interface IStealthRelayer {
     uint256 _blockNumber
   ) external payable returns (bytes memory _returnData);
 
+  function executeAndPay(
+    address _address,
+    bytes memory _callData,
+    bytes32 _stealthHash,
+    uint256 _blockNumber,
+    uint256 _payment
+  ) external payable returns (bytes memory _returnData);
+
   function executeWithoutBlockProtection(
     address _address,
     bytes memory _callData,
     bytes32 _stealthHash
+  ) external payable returns (bytes memory _returnData);
+
+  function executeWithoutBlockProtectionAndPay(
+    address _job,
+    bytes memory _callData,
+    bytes32 _stealthHash,
+    uint256 _payment
   ) external payable returns (bytes memory _returnData);
 }
