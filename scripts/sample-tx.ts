@@ -1,6 +1,11 @@
-import { utils } from 'ethers';
+import { TransactionResponse } from '@ethersproject/abstract-provider';
+import { BigNumber, Transaction, utils } from 'ethers';
 import { run, ethers } from 'hardhat';
 import { wallet } from '../test/utils';
+import axios from 'axios';
+import tenderlyStaticResponse from '../tenderly_response.json';
+
+axios.defaults.headers.post['X-Access-Key'] = process.env.TENDERLY_ACCESS_TOKEN;
 
 async function sendETH() {
   const [deployer] = await ethers.getSigners();
@@ -11,12 +16,36 @@ async function sendETH() {
 
 async function execute() {
   const [deployer] = await ethers.getSigners();
-  const stealthRelayer = await ethers.getContractAt('contracts/StealthRelayer.sol:StealthRelayer', '0x851356ae760d987E095750cCeb3bC6014560891C');
-  const stealthERC20 = await ethers.getContractAt('contracts/mock/StealthERC20.sol:StealthERC20', '0x95401dc811bb5740090279Ba06cfA8fcF6113778');
+  const stealthRelayer = await ethers.getContractAt('contracts/StealthRelayer.sol:StealthRelayer', '0xD6C31564ffe01722991Ced16fC4AFC00F70B6C44');
+  const stealthERC20 = await ethers.getContractAt('contracts/mock/StealthERC20.sol:StealthERC20', '0xEBDe6d5e761792a817177A2ED4A6225693a06D70');
   const rawTx = await stealthERC20.populateTransaction.stealthMint(deployer.address, utils.parseEther('666'));
-  await stealthRelayer.executeWithoutBlockProtection(stealthERC20.address, rawTx.data!, utils.formatBytes32String('hash'));
-  console.log('Execute without block protection');
+  console.log('call data', rawTx.data!);
+  console.log('hash', utils.formatBytes32String('hash'));
+  const tx = await stealthRelayer.executeWithoutBlockProtection(stealthERC20.address, rawTx.data!, utils.formatBytes32String('hash'));
+  console.log('Executing without block protection');
 }
+// async function simulate(tx: Transaction) {
+//   const POST_DATA = {
+//     network_id: '42',
+//     from: tx.from!,
+//     to: tx.to!,
+//     input: tx.data,
+//     gas: tx.gasLimit.toString(),
+//     gas_price: tx.gasPrice.toString(),
+//     value: tx.value.toNumber(),
+//     save: true,
+//     save_if_fails: true,
+//     simulation_type: 'quick',
+//   };
+//   console.log(POST_DATA);
+//   const simulatedTx = { data: tenderlyStaticResponse };
+//   // const tenderlyResponse = await axios.post(`https://api.tenderly.co/api/v1/account/me/project/${process.env.TENDERLY_PROJECT}/simulate`, POST_DATA);
+//   const logs = simulatedTx.data.transaction.transaction_info.logs;
+//   for (let i = 0; i < logs.length; i++) {
+//     // const parsedLogs = ethers
+//   }
+//   console.log(logs);
+// }
 
 execute()
   .then(() => process.exit(0))

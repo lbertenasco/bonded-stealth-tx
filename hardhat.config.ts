@@ -2,6 +2,7 @@ import 'dotenv/config';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-waffle';
 import '@nomiclabs/hardhat-etherscan';
+// import '@tenderly/hardhat-tenderly';
 import { removeConsoleLog } from 'hardhat-preprocessor';
 import 'hardhat-gas-reporter';
 import 'solidity-coverage';
@@ -48,6 +49,10 @@ module.exports = {
         },
       },
     ],
+  },
+  tenderly: {
+    project: process.env.TENDERLY_PROJECT,
+    username: process.env.TENDERLY_USERNAME,
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS ? true : false,
