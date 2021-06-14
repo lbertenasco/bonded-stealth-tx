@@ -16,10 +16,19 @@ module.exports = {
             enabled: process.env.FORK ? true : false,
             url: process.env.MAINNET_HTTPS_URL,
           },
+          mining: {
+            auto: false,
+            interval: 30 * 1000,
+          },
         },
         localMainnet: {
           url: process.env.LOCAL_MAINNET_HTTPS_URL,
-          accounts: [process.env.LOCAL_MAINNET_PRIVATE_KEY],
+          // accounts: [process.env.LOCAL_MAINNET_PRIVATE_KEY],
+        },
+        kovan: {
+          url: process.env.KOVAN_HTTPS_URL,
+          accounts: [process.env.KOVAN_PRIVATE_KEY],
+          gasPrice: 'auto',
         },
         mainnet: {
           url: process.env.MAINNET_HTTPS_URL,
