@@ -1,42 +1,46 @@
 import axios from 'axios';
-import tenderlyStaticResponse from '../../tenderly_response.json';
-import { run, ethers } from 'hardhat';
+import { TransactionResponse } from '@ethersproject/abstract-provider';
+import { ethers } from 'hardhat';
+import _ from 'lodash';
 import StealthVault from '../../artifacts/contracts/StealthVault.sol/StealthVault.json';
-import { Transaction } from '@ethersproject/transactions';
-import { BigNumber } from '@ethersproject/bignumber';
-
-const stealthVaultAddress = '0x4F15455166895e7B0D98715C1e540BbA2718A526';
+import { Contract } from 'ethers';
 // const stealthRelayerAddress = '0xD6C31564ffe01722991Ced16fC4AFC00F70B6C44';
 // const stealthERC20Address = '0xEBDe6d5e761792a817177A2ED4A6225693a06D70';
 
-const stealthVault = new ethers.utils.Interface(StealthVault.abi);
+const stealthVaultAddress = '0x4F15455166895e7B0D98715C1e540BbA2718A526';
+const stealthVaultInterface = new ethers.utils.Interface(StealthVault.abi);
+let stealthVault: Contract;
+let callers: string[];
+let jobs: string[];
+let callersJobs: { [key: string]: string[] } = {};
 
 axios.defaults.headers.post['X-Access-Key'] = process.env.TENDERLY_ACCESS_TOKEN;
 
 async function main() {
-  console.log('Starting ...');
-  // checkTx({
-  //   data: '0xb778f5e7000000000000000000000000ebde6d5e761792a817177a2ed4a6225693a06d70000000000000000000000000000000000000000000000000000000000000006068617368000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044d6431e74000000000000000000000000e448d3c8d814fa8ca047c9cdc33efc513f8fc5c70000000000000000000000000000000000000000000000241a9b4f617a28000000000000000000000000000000000000000000000000000000000000',
-  //   to: '0xD6C31564ffe01722991Ced16fC4AFC00F70B6C44',
-  //   from: '0xE448D3C8d814fA8Ca047C9cDC33efC513f8FC5c7',
-  //   gasLimit: BigNumber.from(1000000),
-  //   gasPrice: BigNumber.from(0),
-  //   value: BigNumber.from(0),
-  //   nonce: 0,
-  //   chainId: 42
-  // });
   return new Promise(async () => {
-    ethers.provider.on('pending', (tx: Transaction) => {
+    console.log('Starting ...');
+    stealthVault = await ethers.getContractAt('contracts/StealthVault.sol:StealthVault', stealthVaultAddress);
+    console.log('Getting callers ...');
+    callers = await stealthVault.callers();
+    console.log('Getting callers jobs ...');
+    for (let i = 0; i < callers.length; i++) {
+      const callerJobs = await stealthVault.callerJobs(callers[i]);
+      console.log('Adding', callerJobs.length, 'jobs of', callers[i]);
+      callersJobs[callers[i]] = callerJobs;
+      jobs = _.merge(jobs, callerJobs);
+    }
+    console.log('Hooking up to mempool ...');
+    ethers.provider.on('pending', (tx: TransactionResponse) => {
       console.log('new tx');
       checkTx(tx);
     });
   });
 }
 
-async function checkTx(tx: Transaction) {
+async function checkTx(tx: TransactionResponse) {
   const POST_DATA = {
     network_id: '42',
-    from: tx.from!,
+    from: tx.from,
     to: tx.to!,
     input: tx.data,
     gas: tx.gasLimit.toNumber(),
@@ -50,18 +54,26 @@ async function checkTx(tx: Transaction) {
     `https://api.tenderly.co/api/v1/account/yearn/project/${process.env.TENDERLY_PROJECT}/simulate`,
     POST_DATA
   );
-  if (!tenderlyResponse.data.transaction.status) return; // transaction reverts
-  const { calls } = tenderlyResponse.data.transaction.transaction_info.call_trace;
-  if (!calls) return; // contract creation
-  const isValidating = isValidatingHash(calls);
+  if (doesTransactionRevert(tenderlyResponse.data.transaction)) return;
+  if (isContractCreation(tenderlyResponse.data.transaction)) return;
+  const isValidating = isValidatingHash(tenderlyResponse.data.transaction.transaction_info.call_trace.calls);
   if (!isValidating.validating) return;
   const logs = tenderlyResponse.data.transaction.transaction_info.logs;
   if (logs[isValidating.index!].raw.address.toLowerCase() === stealthVaultAddress.toLowerCase()) {
-    const parsedLogs = stealthVault.parseLog(logs[isValidating.index!].raw);
+    const parsedLogs = stealthVaultInterface.parseLog(logs[isValidating.index!].raw);
     if (parsedLogs.name === 'ValidatedHash') {
       await reportHash(parsedLogs.args._hash);
     }
   }
+}
+function doesTransactionRevert(transaction: any): boolean {
+  if (!transaction.status) return true;
+  return false;
+}
+
+function isContractCreation(transaction: any): boolean {
+  if (!transaction.transaction_info.call_trace.calls) return true;
+  return false;
 }
 
 function isValidatingHash(calls: any[]): { validating: boolean; index?: number } {
@@ -81,11 +93,11 @@ function isValidatingHash(calls: any[]): { validating: boolean; index?: number }
 
 async function reportHash(hash: string): Promise<void> {
   console.log('reporting hash', hash);
+  // await stealthVault.reportHash(hash);
 }
 
 function validJob(job: string): boolean {
-  // check
-  return true;
+  return _.includes(jobs, job);
 }
 
 main()
