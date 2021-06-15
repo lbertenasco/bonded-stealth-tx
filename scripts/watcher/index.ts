@@ -50,6 +50,7 @@ async function checkTx(tx: TransactionResponse) {
     save_if_fails: true,
     simulation_type: 'quick',
   };
+  if (!validCaller(tx.from)) return;
   const tenderlyResponse = await axios.post(
     `https://api.tenderly.co/api/v1/account/yearn/project/${process.env.TENDERLY_PROJECT}/simulate`,
     POST_DATA
@@ -94,6 +95,10 @@ function isValidatingHash(calls: any[]): { validating: boolean; index?: number }
 async function reportHash(hash: string): Promise<void> {
   console.log('reporting hash', hash);
   // await stealthVault.reportHash(hash);
+}
+
+function validCaller(caller: string): boolean {
+  return _.includes(callers, caller);
 }
 
 function validJob(job: string): boolean {
