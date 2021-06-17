@@ -1,14 +1,21 @@
 import axios from 'axios';
-import { TransactionResponse } from '@ethersproject/abstract-provider';
+import moment from 'moment';
+import { Transaction as Web3Transaction } from 'web3-core';
 import { ethers } from 'hardhat';
 import _ from 'lodash';
 import StealthVault from '../../artifacts/contracts/StealthVault.sol/StealthVault.json';
-import { Contract } from 'ethers';
-// const stealthRelayerAddress = '0xD6C31564ffe01722991Ced16fC4AFC00F70B6C44';
-// const stealthERC20Address = '0xEBDe6d5e761792a817177A2ED4A6225693a06D70';
+import { BigNumber, Contract, Transaction as EthersTransaction, utils, Wallet } from 'ethers';
+import { createAlchemyWeb3 } from '@alch/alchemy-web3';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+
+// Using WebSockets
+const web3 = createAlchemyWeb3('wss://eth-kovan.ws.alchemyapi.io/v2/FxGE-9nBVx0yYsI3IqesIcXxgxbxe2bu');
+// const alchemyProvider = new ethers.providers.AlchemyWebSocketProvider('kovan', 'FxGE-9nBVx0yYsI3IqesIcXxgxbxe2bu');
 
 const stealthVaultAddress = '0x4F15455166895e7B0D98715C1e540BbA2718A526';
 const stealthVaultInterface = new ethers.utils.Interface(StealthVault.abi);
+let nonce: number;
+let reporter: SignerWithAddress;
 let stealthVault: Contract;
 let callers: string[];
 let jobs: string[];
@@ -19,28 +26,45 @@ axios.defaults.headers.post['X-Access-Key'] = process.env.TENDERLY_ACCESS_TOKEN;
 async function main() {
   return new Promise(async () => {
     console.log('Starting ...');
-    stealthVault = await ethers.getContractAt('contracts/StealthVault.sol:StealthVault', stealthVaultAddress);
+    console.log('Getting reporter ...');
+    [, reporter] = await ethers.getSigners();
+    // nonce = await reporter.getTransactionCount();
+    stealthVault = await ethers.getContractAt('contracts/StealthVault.sol:StealthVault', stealthVaultAddress, reporter);
+    // await reportHash(utils.formatBytes32String('124'), utils.parseUnits('5', 'gwei'));
     console.log('Getting callers ...');
-    callers = await stealthVault.callers();
+    callers = (await stealthVault.callers()).map((caller: string) => caller.toLowerCase());
     console.log('Getting callers jobs ...');
     for (let i = 0; i < callers.length; i++) {
-      const callerJobs = await stealthVault.callerJobs(callers[i]);
+      const callerJobs = (await stealthVault.callerJobs(callers[i])).map((callerJob: string) => callerJob.toLowerCase());
       console.log('Adding', callerJobs.length, 'jobs of', callers[i]);
       callersJobs[callers[i]] = callerJobs;
       jobs = _.merge(jobs, callerJobs);
     }
     console.log('Hooking up to mempool ...');
-    ethers.provider.on('pending', (tx: TransactionResponse) => {
-      console.log('new tx');
-      checkTx(tx);
+
+    web3.eth.subscribe('alchemy_fullPendingTransactions', (err: Error, tx: Web3Transaction) => {
+      checkTx(web3TransactionToEthers(tx));
     });
   });
 }
 
-async function checkTx(tx: TransactionResponse) {
+function web3TransactionToEthers(tx: Web3Transaction): EthersTransaction {
+  return {
+    chainId: 42,
+    nonce: tx.nonce,
+    from: tx.from,
+    to: tx.to!,
+    gasLimit: BigNumber.from(tx.gas),
+    gasPrice: BigNumber.from(tx.gasPrice),
+    data: tx.input,
+    value: BigNumber.from(tx.value),
+  };
+}
+
+async function checkTx(tx: EthersTransaction) {
   const POST_DATA = {
     network_id: '42',
-    from: tx.from,
+    from: tx.from!,
     to: tx.to!,
     input: tx.data,
     gas: tx.gasLimit.toNumber(),
@@ -50,7 +74,8 @@ async function checkTx(tx: TransactionResponse) {
     save_if_fails: true,
     simulation_type: 'quick',
   };
-  if (!validCaller(tx.from)) return;
+  if (!validCaller(tx.from!)) return;
+  console.log('arrived at', moment().unix());
   const tenderlyResponse = await axios.post(
     `https://api.tenderly.co/api/v1/account/yearn/project/${process.env.TENDERLY_PROJECT}/simulate`,
     POST_DATA
@@ -63,7 +88,7 @@ async function checkTx(tx: TransactionResponse) {
   if (logs[isValidating.index!].raw.address.toLowerCase() === stealthVaultAddress.toLowerCase()) {
     const parsedLogs = stealthVaultInterface.parseLog(logs[isValidating.index!].raw);
     if (parsedLogs.name === 'ValidatedHash') {
-      await reportHash(parsedLogs.args._hash);
+      await reportHash(parsedLogs.args._hash, tx.gasPrice);
     }
   }
 }
@@ -92,9 +117,19 @@ function isValidatingHash(calls: any[]): { validating: boolean; index?: number }
   };
 }
 
-async function reportHash(hash: string): Promise<void> {
+async function reportHash(hash: string, gasPrice: BigNumber): Promise<void> {
   console.log('reporting hash', hash);
-  // await stealthVault.reportHash(hash);
+  await stealthVault.reportHash(hash, { gasPrice: gasPrice.mul(3) });
+  // nonce++;
+  // const populatedTx = await stealthVault.populateTransaction.reportHash(hash, { gasLimit: 1000000, gasPrice: gasPrice.mul(3), nonce })
+  // const wall = new Wallet('0x8901af9255b653e9a8f654d84b53d37b9134eb5e949f394c8ddb0c2ef4481287');
+  // const signedtx = await wall.signTransaction(populatedTx);
+  // const signedtx = await reporter.signTransaction(populatedTx);
+  // await alchemyProvider.sendTransaction(signedtx);
+  // await ethers.provider.sendTransaction(signedtx);
+  // await web3.eth.sendSignedTransaction(signedtx, (error: Error, hash: string) => {
+  //   console.log(error, hash);
+  // });
 }
 
 function validCaller(caller: string): boolean {

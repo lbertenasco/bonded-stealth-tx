@@ -28,7 +28,7 @@ module.exports = {
         },
         kovan: {
           url: process.env.KOVAN_HTTPS_URL,
-          accounts: [process.env.KOVAN_PRIVATE_KEY],
+          accounts: [process.env.KOVAN_PRIVATE_KEY, '0x8901af9255b653e9a8f654d84b53d37b9134eb5e949f394c8ddb0c2ef4481287'],
           gasPrice: 'auto',
         },
         mainnet: {
