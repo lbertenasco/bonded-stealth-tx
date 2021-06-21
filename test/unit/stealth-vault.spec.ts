@@ -149,12 +149,10 @@ describe('StealthVault', () => {
       let bondTx: TransactionResponse;
       let initialUserBalance: BigNumber;
       let initialContractBalance: BigNumber;
-      let initialCallerLastBondAt: BigNumber;
       const bonding = utils.parseEther('1');
       given(async () => {
         initialUserBalance = await ethers.provider.getBalance(governor.address);
         initialContractBalance = await ethers.provider.getBalance(stealthVault.address);
-        initialCallerLastBondAt = await stealthVault.callerLastBondAt(governor.address);
         bondTx = await stealthVault.bond({ value: bonding, gasPrice: 0 });
       });
       then('eth is taken away from user', async () => {
@@ -169,9 +167,6 @@ describe('StealthVault', () => {
       then('amount is added to total bonded', async () => {
         expect(await stealthVault.totalBonded()).to.be.equal(bonding);
       });
-      then('updates caller last bond at', async () => {
-        expect(await stealthVault.callerLastBondAt(governor.address)).to.be.gt(initialCallerLastBondAt);
-      });
       then('emits event', async () => {
         await expect(bondTx).to.emit(stealthVault, 'Bonded').withArgs(governor.address, bonding, bonding);
       });
@@ -180,14 +175,12 @@ describe('StealthVault', () => {
       let bondTx: TransactionResponse;
       let initialUserBalance: BigNumber;
       let initialContractBalance: BigNumber;
-      let initialCallerLastBondAt: BigNumber;
       const initialUserBonded = utils.parseEther('0.353');
       const bonding = utils.parseEther('1');
       given(async () => {
         await stealthVault.setBonded(governor.address, initialUserBonded);
         initialUserBalance = await ethers.provider.getBalance(governor.address);
         initialContractBalance = await ethers.provider.getBalance(stealthVault.address);
-        initialCallerLastBondAt = await stealthVault.callerLastBondAt(governor.address);
         bondTx = await stealthVault.bond({ value: bonding, gasPrice: 0 });
       });
       then('eth is taken away from user', async () => {
@@ -201,9 +194,6 @@ describe('StealthVault', () => {
       });
       then('amount is added to total bonded', async () => {
         expect(await stealthVault.totalBonded()).to.be.equal(bonding);
-      });
-      then('updates caller last bond at', async () => {
-        expect(await stealthVault.callerLastBondAt(governor.address)).to.be.gt(initialCallerLastBondAt);
       });
       then('emits event', async () => {
         await expect(bondTx).to.emit(stealthVault, 'Bonded').withArgs(governor.address, bonding, initialUserBonded.add(bonding));
@@ -229,7 +219,7 @@ describe('StealthVault', () => {
       args = args ?? [];
       await stealthVault.setTotalBonded(bonded);
       await stealthVault.setBonded(governor.address, bonded);
-      await stealthVault.setCallerLastBondAt(governor.address, moment().subtract(4, 'days').unix());
+      await stealthVault.setCanUnbondAt(governor.address, moment().subtract(1, 'second').unix());
       await forceETHFactory.deploy(stealthVault.address, { value: bonded });
       initialContractBalance = await ethers.provider.getBalance(stealthVault.address);
       initialUserBalance = await ethers.provider.getBalance(governor.address);
@@ -278,11 +268,11 @@ describe('StealthVault', () => {
       let unbondTx: Promise<TransactionResponse>;
       given(async () => {
         await stealthVault.setBonded(governor.address, 2);
-        await stealthVault.setCallerLastBondAt(governor.address, moment().unix());
+        await stealthVault.setCanUnbondAt(governor.address, moment().add(4, 'days').unix());
         unbondTx = stealthVault.unbond(1);
       });
       then('tx is reverted with reason', async () => {
-        await expect(unbondTx).to.be.revertedWith('SV: bond cooldown');
+        await expect(unbondTx).to.be.revertedWith('SV: unbond in cooldown');
       });
     });
     when('unbonding exactly the bonded amount', () => {

@@ -17,7 +17,7 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
 
   uint256 public override totalBonded;
   mapping(address => uint256) public override bonded;
-  mapping(address => uint32) public override callerLastBondAt;
+  mapping(address => uint256) public override canUnbondAt;
 
   mapping(address => EnumerableSet.AddressSet) internal _callerStealthJobs;
   mapping(bytes32 => address) public override hashReportedBy;
@@ -58,7 +58,6 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     require(msg.value > 0, 'SV: bond more than zero');
     bonded[msg.sender] = bonded[msg.sender] + msg.value;
     totalBonded = totalBonded + msg.value;
-    callerLastBondAt[msg.sender] = uint32(block.timestamp);
     emit Bonded(msg.sender, msg.value, bonded[msg.sender]);
   }
 
@@ -66,13 +65,23 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     unbond(bonded[msg.sender]);
   }
 
+  function startUnbond() public override nonReentrant() {
+    canUnbondAt[msg.sender] = block.timestamp + 4 days;
+  }
+
+  function cancelUnbond() public override nonReentrant() {
+    canUnbondAt[msg.sender] = 0;
+  }
+
   function unbond(uint256 _amount) public override nonReentrant() {
     require(_amount > 0, 'SV: more than zero');
     require(_amount <= bonded[msg.sender], 'SV: amount too high');
-    require(uint32(block.timestamp) > callerLastBondAt[msg.sender] + 4 days, 'SV: bond cooldown');
+    require(canUnbondAt[msg.sender] > 0, 'SV: not unbondind');
+    require(block.timestamp > canUnbondAt[msg.sender], 'SV: unbond in cooldown');
 
     bonded[msg.sender] = bonded[msg.sender] - _amount;
     totalBonded = totalBonded - _amount;
+    canUnbondAt[msg.sender] = 0;
 
     payable(msg.sender).transfer(_amount);
     emit Unbonded(msg.sender, _amount, bonded[msg.sender]);
@@ -100,6 +109,7 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     require(_caller == tx.origin, 'SV: not eoa');
     require(_callerStealthJobs[_caller].contains(msg.sender), 'SV: job not enabled');
     require(bonded[_caller] >= _penalty, 'SV: not enough bonded');
+    require(canUnbondAt[_caller] == 0, 'SV: unbonding');
 
     address reportedBy = hashReportedBy[_hash];
     if (reportedBy != address(0)) {
