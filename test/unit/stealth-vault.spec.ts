@@ -261,7 +261,40 @@ describe('StealthVault', () => {
         unbondTx = stealthVault.unbond(2);
       });
       then('tx is reverted with reason', async () => {
-        await expect(unbondTx).to.be.revertedWith('amount too high');
+        await expect(unbondTx).to.be.revertedWith('SV: amount too high');
+      });
+    });
+    when('unbond while not unbonding', () => {
+      let unbondTx: Promise<TransactionResponse>;
+      given(async () => {
+        await stealthVault.setBonded(governor.address, 1);
+        unbondTx = stealthVault.unbond(1);
+      });
+      then('tx is reverted with reason', async () => {
+        await expect(unbondTx).to.be.revertedWith('SV: not unbondind');
+      });
+    });
+    when('unbond while unbonding in cooldown', () => {
+      let unbondTx: Promise<TransactionResponse>;
+      given(async () => {
+        await stealthVault.setBonded(governor.address, 1);
+        await stealthVault.startUnbond();
+        unbondTx = stealthVault.unbond(1);
+      });
+      then('tx is reverted with reason', async () => {
+        await expect(unbondTx).to.be.revertedWith('SV: unbond in cooldown');
+      });
+    });
+    when('unbond while unbonding was cancelled', () => {
+      let unbondTx: Promise<TransactionResponse>;
+      given(async () => {
+        await stealthVault.setBonded(governor.address, 1);
+        await stealthVault.startUnbond();
+        await stealthVault.cancelUnbond();
+        unbondTx = stealthVault.unbond(1);
+      });
+      then('tx is reverted with reason', async () => {
+        await expect(unbondTx).to.be.revertedWith('SV: not unbondind');
       });
     });
     when('unbonded less than 4 days ago', () => {
@@ -405,6 +438,37 @@ describe('StealthVault', () => {
       });
       then('tx is reverted with reason', async () => {
         await expect(validateTx).to.be.revertedWith('SV: not enough bonded');
+      });
+    });
+    when('caller is unbonding', () => {
+      let validateTx: Promise<TransactionResponse>;
+      let jobMock: Contract;
+      const penalty = 1;
+      given(async () => {
+        jobMock = await jobMockFactory.deploy(stealthVault.address);
+        await stealthVault.setBonded(caller.address, penalty);
+        await stealthVault.addCallerStealthJob(caller.address, jobMock.address);
+        await stealthVault.connect(caller).startUnbond({ gasPrice: 0 });
+        validateTx = jobMock.connect(caller).validateHash(utils.formatBytes32String('some-hash'), penalty, { gasPrice: 0 });
+      });
+      then('tx is reverted with reason', async () => {
+        await expect(validateTx).to.be.revertedWith('SV: unbonding');
+      });
+    });
+    when('caller was unbonding but cancelled', () => {
+      let validHash: boolean;
+      let jobMock: Contract;
+      const penalty = 1;
+      given(async () => {
+        jobMock = await jobMockFactory.deploy(stealthVault.address);
+        await stealthVault.setBonded(caller.address, penalty);
+        await stealthVault.addCallerStealthJob(caller.address, jobMock.address);
+        await stealthVault.connect(caller).startUnbond({ gasPrice: 0 });
+        await stealthVault.connect(caller).cancelUnbond({ gasPrice: 0 });
+        validHash = await jobMock.connect(caller).callStatic.validateHash(utils.formatBytes32String('some-hash'), penalty);
+      });
+      then('returns true', () => {
+        expect(validHash).to.be.true;
       });
     });
     when('hash was not reported', () => {
