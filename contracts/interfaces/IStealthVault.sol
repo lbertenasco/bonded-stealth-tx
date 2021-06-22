@@ -21,7 +21,7 @@ interface IStealthVault {
 
   function bonded(address _caller) external view returns (uint256 _bond);
 
-  function callerLastBondAt(address _caller) external view returns (uint32 _lastBondAt);
+  function canUnbondAt(address _caller) external view returns (uint256 _canUnbondAt);
 
   // global caller
   function caller(address _caller) external view returns (bool _enabled);
@@ -39,6 +39,10 @@ interface IStealthVault {
 
   // caller
   function bond() external payable;
+
+  function startUnbond() external;
+
+  function cancelUnbond() external;
 
   function unbondAll() external;
 
