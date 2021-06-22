@@ -25,7 +25,10 @@ async function execute() {
   const rawTx = await stealthERC20.populateTransaction.stealthMint(deployer.address, utils.parseEther('666'));
   const hash = utils.formatBytes32String(generateRandomNumber(1, 1000000));
   console.log('hash', hash);
-  await stealthRelayer.executeWithoutBlockProtection(stealthERC20.address, rawTx.data!, hash, { gasPrice: utils.parseUnits('1', 'gwei') });
+  await stealthRelayer.executeWithoutBlockProtection(stealthERC20.address, rawTx.data!, hash, {
+    gasLimit: 200000,
+    gasPrice: utils.parseUnits('1', 'gwei'),
+  });
   console.log('sent at', moment().unix());
   console.log('Executing without block protection');
 }
