@@ -14,8 +14,8 @@ contract StealthVaultMock is StealthVault {
     totalBonded = _bond;
   }
 
-  function setCallerLastBondAt(address _user, uint32 _lastBond) external {
-    callerLastBondAt[_user] = _lastBond;
+  function setCanUnbondAt(address _user, uint32 _lastBond) external {
+    canUnbondAt[_user] = _lastBond;
   }
 
   function addCallerStealthJob(address _caller, address _job) external {

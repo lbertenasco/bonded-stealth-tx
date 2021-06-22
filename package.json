@@ -1,6 +1,6 @@
 {
   "name": "@lbertenasco/bonded-stealth-tx",
-  "version": "0.0.0",
+  "version": "0.3.0",
   "description": "bonded stealth tx vault smart contracts",
   "homepage": "https://github.com/lbertenasco/bonded-stealth-tx#readme",
   "bugs": {
@@ -22,7 +22,7 @@
     "docs": "solidity-docgen --solc-module solc-0.8",
     "fork:node": "FORK=true hardhat node",
     "fork:script": "FORK=true hardhat run",
-    "_postinstall": "husky install",
+    "postinstall": "husky install",
     "lint:check": "solhint 'contracts/**/*.sol' 'interfaces/**/*.sol' && prettier --check './**'",
     "lint:fix": "sort-package-json && prettier --write './**' && solhint --fix 'contracts/**/*.sol' 'interfaces/**/*.sol'",
     "prepublishOnly": "pinst --disable",

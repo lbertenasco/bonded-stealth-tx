@@ -19,6 +19,7 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
   EnumerableSet.AddressSet internal _jobs;
 
   bool public override forceBlockProtection;
+  address public override caller;
 
   constructor(address _stealthVault) Governable(msg.sender) StealthTx(_stealthVault) {}
 
@@ -27,12 +28,26 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     _;
   }
 
+  modifier setsCaller() {
+    caller = msg.sender;
+    _;
+    caller = address(0);
+  }
+
   function execute(
     address _job,
     bytes memory _callData,
     bytes32 _stealthHash,
     uint256 _blockNumber
-  ) external payable override onlyValidJob(_job) validateStealthTxAndBlock(_stealthHash, _blockNumber) returns (bytes memory _returnData) {
+  )
+    external
+    payable
+    override
+    onlyValidJob(_job)
+    validateStealthTxAndBlock(_stealthHash, _blockNumber)
+    setsCaller()
+    returns (bytes memory _returnData)
+  {
     return _callWithValue(_job, _callData, msg.value);
   }
 
@@ -42,7 +57,15 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     bytes32 _stealthHash,
     uint256 _blockNumber,
     uint256 _payment
-  ) external payable override onlyValidJob(_job) validateStealthTxAndBlock(_stealthHash, _blockNumber) returns (bytes memory _returnData) {
+  )
+    external
+    payable
+    override
+    onlyValidJob(_job)
+    validateStealthTxAndBlock(_stealthHash, _blockNumber)
+    setsCaller()
+    returns (bytes memory _returnData)
+  {
     _returnData = _callWithValue(_job, _callData, msg.value - _payment);
     block.coinbase.transfer(_payment);
   }
@@ -51,7 +74,7 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     address _job,
     bytes memory _callData,
     bytes32 _stealthHash
-  ) external payable override onlyValidJob(_job) validateStealthTx(_stealthHash) returns (bytes memory _returnData) {
+  ) external payable override onlyValidJob(_job) validateStealthTx(_stealthHash) setsCaller() returns (bytes memory _returnData) {
     require(!forceBlockProtection, 'SR: block protection required');
     return _callWithValue(_job, _callData, msg.value);
   }
@@ -61,7 +84,7 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     bytes memory _callData,
     bytes32 _stealthHash,
     uint256 _payment
-  ) external payable override onlyValidJob(_job) validateStealthTx(_stealthHash) returns (bytes memory _returnData) {
+  ) external payable override onlyValidJob(_job) validateStealthTx(_stealthHash) setsCaller() returns (bytes memory _returnData) {
     require(!forceBlockProtection, 'SR: block protection required');
     _returnData = _callWithValue(_job, _callData, msg.value - _payment);
     block.coinbase.transfer(_payment);
