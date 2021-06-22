@@ -1,6 +1,5 @@
 import { Contract, ContractFactory } from 'ethers';
 import { run, ethers, network } from 'hardhat';
-import { e18, ZERO_ADDRESS } from '../../utils/web3-utils';
 
 const { Confirm } = require('enquirer');
 const prompt = new Confirm('Do you wish to deploy StealthVault contract?');
