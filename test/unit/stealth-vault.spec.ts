@@ -149,12 +149,10 @@ describe('StealthVault', () => {
       let bondTx: TransactionResponse;
       let initialUserBalance: BigNumber;
       let initialContractBalance: BigNumber;
-      let initialCallerLastBondAt: BigNumber;
       const bonding = utils.parseEther('1');
       given(async () => {
         initialUserBalance = await ethers.provider.getBalance(governor.address);
         initialContractBalance = await ethers.provider.getBalance(stealthVault.address);
-        initialCallerLastBondAt = await stealthVault.callerLastBondAt(governor.address);
         bondTx = await stealthVault.bond({ value: bonding, gasPrice: 0 });
       });
       then('eth is taken away from user', async () => {
@@ -169,9 +167,6 @@ describe('StealthVault', () => {
       then('amount is added to total bonded', async () => {
         expect(await stealthVault.totalBonded()).to.be.equal(bonding);
       });
-      then('updates caller last bond at', async () => {
-        expect(await stealthVault.callerLastBondAt(governor.address)).to.be.gt(initialCallerLastBondAt);
-      });
       then('emits event', async () => {
         await expect(bondTx).to.emit(stealthVault, 'Bonded').withArgs(governor.address, bonding, bonding);
       });
@@ -180,14 +175,12 @@ describe('StealthVault', () => {
       let bondTx: TransactionResponse;
       let initialUserBalance: BigNumber;
       let initialContractBalance: BigNumber;
-      let initialCallerLastBondAt: BigNumber;
       const initialUserBonded = utils.parseEther('0.353');
       const bonding = utils.parseEther('1');
       given(async () => {
         await stealthVault.setBonded(governor.address, initialUserBonded);
         initialUserBalance = await ethers.provider.getBalance(governor.address);
         initialContractBalance = await ethers.provider.getBalance(stealthVault.address);
-        initialCallerLastBondAt = await stealthVault.callerLastBondAt(governor.address);
         bondTx = await stealthVault.bond({ value: bonding, gasPrice: 0 });
       });
       then('eth is taken away from user', async () => {
@@ -201,9 +194,6 @@ describe('StealthVault', () => {
       });
       then('amount is added to total bonded', async () => {
         expect(await stealthVault.totalBonded()).to.be.equal(bonding);
-      });
-      then('updates caller last bond at', async () => {
-        expect(await stealthVault.callerLastBondAt(governor.address)).to.be.gt(initialCallerLastBondAt);
       });
       then('emits event', async () => {
         await expect(bondTx).to.emit(stealthVault, 'Bonded').withArgs(governor.address, bonding, initialUserBonded.add(bonding));
@@ -229,7 +219,7 @@ describe('StealthVault', () => {
       args = args ?? [];
       await stealthVault.setTotalBonded(bonded);
       await stealthVault.setBonded(governor.address, bonded);
-      await stealthVault.setCallerLastBondAt(governor.address, moment().subtract(4, 'days').unix());
+      await stealthVault.setCanUnbondAt(governor.address, moment().subtract(1, 'second').unix());
       await forceETHFactory.deploy(stealthVault.address, { value: bonded });
       initialContractBalance = await ethers.provider.getBalance(stealthVault.address);
       initialUserBalance = await ethers.provider.getBalance(governor.address);
@@ -271,18 +261,51 @@ describe('StealthVault', () => {
         unbondTx = stealthVault.unbond(2);
       });
       then('tx is reverted with reason', async () => {
-        await expect(unbondTx).to.be.revertedWith('amount too high');
+        await expect(unbondTx).to.be.revertedWith('SV: amount too high');
+      });
+    });
+    when('unbond while not unbonding', () => {
+      let unbondTx: Promise<TransactionResponse>;
+      given(async () => {
+        await stealthVault.setBonded(governor.address, 1);
+        unbondTx = stealthVault.unbond(1);
+      });
+      then('tx is reverted with reason', async () => {
+        await expect(unbondTx).to.be.revertedWith('SV: not unbondind');
+      });
+    });
+    when('unbond while unbonding in cooldown', () => {
+      let unbondTx: Promise<TransactionResponse>;
+      given(async () => {
+        await stealthVault.setBonded(governor.address, 1);
+        await stealthVault.startUnbond();
+        unbondTx = stealthVault.unbond(1);
+      });
+      then('tx is reverted with reason', async () => {
+        await expect(unbondTx).to.be.revertedWith('SV: unbond in cooldown');
+      });
+    });
+    when('unbond while unbonding was cancelled', () => {
+      let unbondTx: Promise<TransactionResponse>;
+      given(async () => {
+        await stealthVault.setBonded(governor.address, 1);
+        await stealthVault.startUnbond();
+        await stealthVault.cancelUnbond();
+        unbondTx = stealthVault.unbond(1);
+      });
+      then('tx is reverted with reason', async () => {
+        await expect(unbondTx).to.be.revertedWith('SV: not unbondind');
       });
     });
     when('unbonded less than 4 days ago', () => {
       let unbondTx: Promise<TransactionResponse>;
       given(async () => {
         await stealthVault.setBonded(governor.address, 2);
-        await stealthVault.setCallerLastBondAt(governor.address, moment().unix());
+        await stealthVault.setCanUnbondAt(governor.address, moment().add(4, 'days').unix());
         unbondTx = stealthVault.unbond(1);
       });
       then('tx is reverted with reason', async () => {
-        await expect(unbondTx).to.be.revertedWith('SV: bond cooldown');
+        await expect(unbondTx).to.be.revertedWith('SV: unbond in cooldown');
       });
     });
     when('unbonding exactly the bonded amount', () => {
@@ -415,6 +438,37 @@ describe('StealthVault', () => {
       });
       then('tx is reverted with reason', async () => {
         await expect(validateTx).to.be.revertedWith('SV: not enough bonded');
+      });
+    });
+    when('caller is unbonding', () => {
+      let validateTx: Promise<TransactionResponse>;
+      let jobMock: Contract;
+      const penalty = 1;
+      given(async () => {
+        jobMock = await jobMockFactory.deploy(stealthVault.address);
+        await stealthVault.setBonded(caller.address, penalty);
+        await stealthVault.addCallerStealthJob(caller.address, jobMock.address);
+        await stealthVault.connect(caller).startUnbond({ gasPrice: 0 });
+        validateTx = jobMock.connect(caller).validateHash(utils.formatBytes32String('some-hash'), penalty, { gasPrice: 0 });
+      });
+      then('tx is reverted with reason', async () => {
+        await expect(validateTx).to.be.revertedWith('SV: unbonding');
+      });
+    });
+    when('caller was unbonding but cancelled', () => {
+      let validHash: boolean;
+      let jobMock: Contract;
+      const penalty = 1;
+      given(async () => {
+        jobMock = await jobMockFactory.deploy(stealthVault.address);
+        await stealthVault.setBonded(caller.address, penalty);
+        await stealthVault.addCallerStealthJob(caller.address, jobMock.address);
+        await stealthVault.connect(caller).startUnbond({ gasPrice: 0 });
+        await stealthVault.connect(caller).cancelUnbond({ gasPrice: 0 });
+        validHash = await jobMock.connect(caller).callStatic.validateHash(utils.formatBytes32String('some-hash'), penalty);
+      });
+      then('returns true', () => {
+        expect(validHash).to.be.true;
       });
     });
     when('hash was not reported', () => {
