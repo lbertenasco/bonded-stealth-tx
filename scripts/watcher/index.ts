@@ -9,8 +9,7 @@ import { createAlchemyWeb3 } from '@alch/alchemy-web3';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 // Using WebSockets
-const web3 = createAlchemyWeb3('wss://eth-kovan.ws.alchemyapi.io/v2/FxGE-9nBVx0yYsI3IqesIcXxgxbxe2bu');
-// const alchemyProvider = new ethers.providers.AlchemyWebSocketProvider('kovan', 'FxGE-9nBVx0yYsI3IqesIcXxgxbxe2bu');
+const web3 = createAlchemyWeb3('wss://eth-kovan.ws.alchemyapi.io/v2/OAh_8Jbu8aMsuFAj1n8gRzo8PPRfK7VP');
 
 const stealthVaultAddress = '0x4F15455166895e7B0D98715C1e540BbA2718A526';
 const stealthVaultInterface = new ethers.utils.Interface(StealthVault.abi);
@@ -23,14 +22,17 @@ let callersJobs: { [key: string]: string[] } = {};
 
 axios.defaults.headers.post['X-Access-Key'] = process.env.TENDERLY_ACCESS_TOKEN;
 
+const generateRandomNumber = (min: number, max: number): string => {
+  return `${Math.floor(Math.random() * (max - min) + min)}`;
+};
+
 async function main() {
   return new Promise(async () => {
     console.log('Starting ...');
     console.log('Getting reporter ...');
     [, reporter] = await ethers.getSigners();
-    // nonce = await reporter.getTransactionCount();
+    nonce = await reporter.getTransactionCount();
     stealthVault = await ethers.getContractAt('contracts/StealthVault.sol:StealthVault', stealthVaultAddress, reporter);
-    // await reportHash(utils.formatBytes32String('124'), utils.parseUnits('5', 'gwei'));
     console.log('Getting callers ...');
     callers = (await stealthVault.callers()).map((caller: string) => caller.toLowerCase());
     console.log('Getting callers jobs ...');
@@ -51,6 +53,7 @@ async function main() {
 function web3TransactionToEthers(tx: Web3Transaction): EthersTransaction {
   return {
     chainId: 42,
+    hash: tx.hash,
     nonce: tx.nonce,
     from: tx.from,
     to: tx.to!,
@@ -74,12 +77,17 @@ async function checkTx(tx: EthersTransaction) {
     save_if_fails: true,
     simulation_type: 'quick',
   };
+  const rand = generateRandomNumber(1, 1000000000);
+  console.time(`Validate caller ${rand}-${tx.hash!}`);
   if (!validCaller(tx.from!)) return;
+  console.timeEnd(`Validate caller ${rand}-${tx.hash!}`);
   console.log('arrived at', moment().unix());
+  console.time(`Simulation ${rand}-${tx.hash!}`);
   const tenderlyResponse = await axios.post(
     `https://api.tenderly.co/api/v1/account/yearn/project/${process.env.TENDERLY_PROJECT}/simulate`,
     POST_DATA
   );
+  console.timeEnd(`Simulation ${rand}-${tx.hash!}`);
   if (doesTransactionRevert(tenderlyResponse.data.transaction)) return;
   if (isContractCreation(tenderlyResponse.data.transaction)) return;
   const isValidating = isValidatingHash(tenderlyResponse.data.transaction.transaction_info.call_trace.calls);
@@ -119,17 +127,20 @@ function isValidatingHash(calls: any[]): { validating: boolean; index?: number }
 
 async function reportHash(hash: string, gasPrice: BigNumber): Promise<void> {
   console.log('reporting hash', hash);
-  await stealthVault.reportHash(hash, { gasPrice: gasPrice.mul(3) });
-  // nonce++;
-  // const populatedTx = await stealthVault.populateTransaction.reportHash(hash, { gasLimit: 1000000, gasPrice: gasPrice.mul(3), nonce })
-  // const wall = new Wallet('0x8901af9255b653e9a8f654d84b53d37b9134eb5e949f394c8ddb0c2ef4481287');
-  // const signedtx = await wall.signTransaction(populatedTx);
-  // const signedtx = await reporter.signTransaction(populatedTx);
-  // await alchemyProvider.sendTransaction(signedtx);
-  // await ethers.provider.sendTransaction(signedtx);
-  // await web3.eth.sendSignedTransaction(signedtx, (error: Error, hash: string) => {
-  //   console.log(error, hash);
-  // });
+  nonce++;
+  const populatedTx = await stealthVault.populateTransaction.reportHash(hash, { gasLimit: 1000000, gasPrice: gasPrice.mul(3), nonce });
+  const signedtx = await web3.eth.accounts.signTransaction(
+    {
+      to: stealthVaultAddress,
+      gasPrice: web3.utils.toWei('15', 'gwei'),
+      gas: '100000',
+      data: populatedTx.data!,
+    },
+    process.env.KOVAN_2_PRIVATE_KEY as string
+  );
+  const promiEvent = await web3.eth.sendSignedTransaction(signedtx.rawTransaction!, (error: Error, hash: string) => {
+    console.log('Sent report with tx hash', hash);
+  });
 }
 
 function validCaller(caller: string): boolean {
