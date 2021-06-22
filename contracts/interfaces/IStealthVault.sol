@@ -2,14 +2,22 @@
 pragma solidity 0.8.4;
 
 interface IStealthVault {
-  function isStealthVault() external pure returns (bool);
-
   //events
-  event Bonded(address _caller, uint256 _amount, uint256 _finalBond);
-  event Unbonded(address _caller, uint256 _amount, uint256 _finalBond);
+  event Bonded(address indexed _caller, uint256 _amount, uint256 _finalBond);
+  event Unbonded(address indexed _caller, uint256 _amount, uint256 _finalBond);
   event ReportedHash(bytes32 _hash, address _reportedBy);
   event PenaltyApplied(bytes32 _hash, address _caller, uint256 _penalty, address _reportedBy);
   event ValidatedHash(bytes32 _hash, address _caller, uint256 _penalty);
+
+  event StealthJobEnabled(address indexed _caller, address _job);
+
+  event StealthJobsEnabled(address indexed _caller, address[] _jobs);
+
+  event StealthJobDisabled(address indexed _caller, address _job);
+
+  event StealthJobsDisabled(address indexed _caller, address[] _jobs);
+
+  function isStealthVault() external pure returns (bool);
 
   // getters
   function callers() external view returns (address[] memory _callers);

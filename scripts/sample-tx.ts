@@ -20,8 +20,11 @@ async function sendETH() {
 
 async function execute() {
   const [deployer] = await ethers.getSigners();
-  const stealthRelayer = await ethers.getContractAt('contracts/StealthRelayer.sol:StealthRelayer', '0xD6C31564ffe01722991Ced16fC4AFC00F70B6C44');
-  const stealthERC20 = await ethers.getContractAt('contracts/mock/StealthERC20.sol:StealthERC20', '0xEBDe6d5e761792a817177A2ED4A6225693a06D70');
+  const stealthVault = await ethers.getContractAt('contracts/StealthVault.sol:StealthVault', '0x12F86457C6aa1d0e63aef72b4E2ae391A7EeB14D');
+  const stealthRelayer = await ethers.getContractAt('contracts/StealthRelayer.sol:StealthRelayer', '0x4A7a3b790D0aD2b9e1e65f9a3cf31e99455D4E1c');
+  const stealthERC20 = await ethers.getContractAt('contracts/mock/StealthERC20.sol:StealthERC20', '0xf244E372A492e415599452b4eA139338f3f24a0b');
+  // await stealthRelayer.setPenalty(utils.parseEther('0.001'));
+  // await stealthVault.addStealthJob(stealthRelayer.address);
   const rawTx = await stealthERC20.populateTransaction.stealthMint(deployer.address, utils.parseEther('666'));
   const hash = utils.formatBytes32String(generateRandomNumber(1, 1000000));
   console.log('hash', hash);

@@ -4,7 +4,7 @@ import { Transaction as Web3Transaction } from 'web3-core';
 import { ethers } from 'hardhat';
 import _ from 'lodash';
 import StealthVault from '../../artifacts/contracts/StealthVault.sol/StealthVault.json';
-import { BigNumber, Contract, Transaction as EthersTransaction, utils, Wallet } from 'ethers';
+import { BigNumber, Contract, Transaction as EthersTransaction } from 'ethers';
 import { createAlchemyWeb3 } from '@alch/alchemy-web3';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 

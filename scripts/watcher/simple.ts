@@ -1,10 +1,8 @@
-import axios from 'axios';
-import moment from 'moment';
 import { Transaction as Web3Transaction } from 'web3-core';
 import { ethers } from 'hardhat';
 import _ from 'lodash';
 import StealthRelayer from '../../artifacts/contracts/StealthRelayer.sol/StealthRelayer.json';
-import { BigNumber, Contract, Transaction as EthersTransaction, utils, Wallet } from 'ethers';
+import { BigNumber, Contract, Transaction as EthersTransaction } from 'ethers';
 import { createAlchemyWeb3 } from '@alch/alchemy-web3';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
@@ -20,8 +18,7 @@ let stealthVault: Contract;
 let callers: string[];
 let jobs: string[];
 let callersJobs: { [key: string]: string[] } = {};
-
-axios.defaults.headers.post['X-Access-Key'] = process.env.TENDERLY_ACCESS_TOKEN;
+let bonded: { [key: string]: BigNumber } = {};
 
 const generateRandomNumber = (min: number, max: number): string => {
   return `${Math.floor(Math.random() * (max - min) + min)}`;
@@ -42,6 +39,8 @@ async function main() {
       console.log('Adding', callerJobs.length, 'jobs of', callers[i]);
       callersJobs[callers[i]] = callerJobs;
       jobs = _.merge(jobs, callerJobs);
+      console.log('Getting bonded from', callers[i]);
+      bonded[callers[i]] = await stealthVault.bonded(callers[i]);
     }
     console.log('Hooking up to mempool ...');
 
