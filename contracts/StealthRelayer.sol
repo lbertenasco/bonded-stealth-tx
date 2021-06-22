@@ -39,7 +39,15 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     bytes memory _callData,
     bytes32 _stealthHash,
     uint256 _blockNumber
-  ) external payable override onlyValidJob(_job) validateStealthTxAndBlock(_stealthHash, _blockNumber) setsCaller() returns (bytes memory _returnData) {
+  )
+    external
+    payable
+    override
+    onlyValidJob(_job)
+    validateStealthTxAndBlock(_stealthHash, _blockNumber)
+    setsCaller()
+    returns (bytes memory _returnData)
+  {
     return _callWithValue(_job, _callData, msg.value);
   }
 
@@ -49,7 +57,15 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
     bytes32 _stealthHash,
     uint256 _blockNumber,
     uint256 _payment
-  ) external payable override onlyValidJob(_job) validateStealthTxAndBlock(_stealthHash, _blockNumber) setsCaller() returns (bytes memory _returnData) {
+  )
+    external
+    payable
+    override
+    onlyValidJob(_job)
+    validateStealthTxAndBlock(_stealthHash, _blockNumber)
+    setsCaller()
+    returns (bytes memory _returnData)
+  {
     _returnData = _callWithValue(_job, _callData, msg.value - _payment);
     block.coinbase.transfer(_payment);
   }
