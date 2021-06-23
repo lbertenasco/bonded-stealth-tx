@@ -32,10 +32,9 @@ interface IStealthVault {
   function hashReportedBy(bytes32 _hash) external view returns (address _reportedBy);
 
   // governor
-  function transferGovernorBond(
-    address _caller,
-    uint256 _amount /*onlyGovernor*/
-  ) external;
+  function transferGovernorBond(address _caller, uint256 _amount) external;
+
+  function transferBondToGovernor(address _caller, uint256 _amount) external;
 
   // caller
   function bond() external payable;

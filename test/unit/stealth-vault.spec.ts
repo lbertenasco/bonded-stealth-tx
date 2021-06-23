@@ -135,6 +135,26 @@ describe('StealthVault', () => {
     });
   });
 
+  describe('transferBondToGovernor', () => {
+    let caller: string;
+    let initialGovernorBond = utils.parseEther('100');
+    let initialCallerBond = utils.parseEther('20');
+    const transfered = initialCallerBond.div(2);
+    given(async () => {
+      caller = await wallet.generateRandomAddress();
+      await stealthVault.setBonded(governor.address, initialGovernorBond);
+      await stealthVault.setBonded(caller, initialCallerBond);
+      await stealthVault.transferBondToGovernor(caller, transfered);
+    });
+    // only governor
+    then('reduces bond of governor', async () => {
+      expect(await stealthVault.bonded(governor.address)).to.equal(initialGovernorBond.add(transfered));
+    });
+    then('increases bond of caller', async () => {
+      expect(await stealthVault.bonded(caller)).to.equal(initialCallerBond.sub(transfered));
+    });
+  });
+
   describe('bond', () => {
     when('bonding zero eth', () => {
       let bondTx: Promise<TransactionResponse>;

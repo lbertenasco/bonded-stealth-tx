@@ -178,6 +178,11 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     bonded[_caller] = bonded[_caller] + _amount;
   }
 
+  function transferBondToGovernor(address _caller, uint256 _amount) external override onlyGovernor {
+    bonded[_caller] = bonded[_caller] - _amount;
+    bonded[governor] = bonded[governor] + _amount;
+  }
+
   function setPendingGovernor(address _pendingGovernor) external override onlyGovernor {
     _setPendingGovernor(_pendingGovernor);
   }
