@@ -18,7 +18,7 @@ let reporter: SignerWithAddress;
 let stealthVault: Contract;
 let callers: string[];
 let jobs: string[];
-let callersJobs: { [key: string]: string[] } = {};
+const callersJobs: { [key: string]: string[] } = {};
 
 axios.defaults.headers.post['X-Access-Key'] = process.env.TENDERLY_ACCESS_TOKEN;
 

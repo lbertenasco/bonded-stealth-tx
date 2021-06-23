@@ -16,9 +16,9 @@ let stealthVault: Contract;
 let stealthRelayer: Contract;
 let callers: string[];
 let jobs: string[];
-let callersJobs: { [key: string]: string[] } = {};
-let bonded: { [key: string]: BigNumber } = {};
 let stealthRelayerPenalty: BigNumber;
+const bonded: { [key: string]: BigNumber } = {};
+const callersJobs: { [key: string]: string[] } = {};
 
 const generateRandomNumber = (min: number, max: number): string => {
   return `${Math.floor(Math.random() * (max - min) + min)}`;

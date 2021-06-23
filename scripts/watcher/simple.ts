@@ -10,15 +10,15 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 const web3 = createAlchemyWeb3('wss://eth-kovan.ws.alchemyapi.io/v2/OAh_8Jbu8aMsuFAj1n8gRzo8PPRfK7VP');
 
 const stealthVaultAddress = '0x4F15455166895e7B0D98715C1e540BbA2718A526';
-const stealthRelayerAddress = '0xD6C31564ffe01722991Ced16fC4AFC00F70B6C44';
+// const stealthRelayerAddress = '0xD6C31564ffe01722991Ced16fC4AFC00F70B6C44';
 const stealthRelayerInterface = new ethers.utils.Interface(StealthRelayer.abi);
 let nonce: number;
 let reporter: SignerWithAddress;
 let stealthVault: Contract;
 let callers: string[];
 let jobs: string[];
-let callersJobs: { [key: string]: string[] } = {};
-let bonded: { [key: string]: BigNumber } = {};
+const bonded: { [key: string]: BigNumber } = {};
+const callersJobs: { [key: string]: string[] } = {};
 
 const generateRandomNumber = (min: number, max: number): string => {
   return `${Math.floor(Math.random() * (max - min) + min)}`;
