@@ -445,7 +445,7 @@ describe('StealthVault', () => {
         validateTx = stealthVault.connect(caller).validateHash(caller.address, utils.formatBytes32String('some-hash'), 0, { gasPrice: 0 });
       });
       then('tx is reverted with reason', async () => {
-        await expect(validateTx).to.be.revertedWith('SV: job not enabled');
+        await expect(validateTx).to.be.revertedWith('SV: contract not enabled');
       });
     });
     when('caller does not have enough bonded for penalty', () => {
@@ -578,7 +578,7 @@ describe('StealthVault', () => {
         enableStealthContractTx = stealthVault.enableStealthContract(stealthJob);
       });
       then('tx is reverted with reason', async () => {
-        await expect(enableStealthContractTx).to.be.revertedWith('SV: job already added');
+        await expect(enableStealthContractTx).to.be.revertedWith('SV: contract already added');
       });
     });
     when('enabling a valid job for the first time', () => {
@@ -620,7 +620,7 @@ describe('StealthVault', () => {
         enableStealthContractsTx = stealthVault.enableStealthContracts([stealthJob]);
       });
       then('tx is reverted with reason', async () => {
-        await expect(enableStealthContractsTx).to.be.revertedWith('SV: job already added');
+        await expect(enableStealthContractsTx).to.be.revertedWith('SV: contract already added');
       });
     });
     when('enabling a valid jobs for the first time', () => {
@@ -663,7 +663,7 @@ describe('StealthVault', () => {
         disableStealthContractTx = stealthVault.disableStealthContract(await wallet.generateRandomAddress());
       });
       then('tx is reverted with reason', async () => {
-        await expect(disableStealthContractTx).to.be.revertedWith('SV: job not found');
+        await expect(disableStealthContractTx).to.be.revertedWith('SV: contract not found');
       });
     });
     when('disabling one of many jobs', () => {
@@ -705,7 +705,7 @@ describe('StealthVault', () => {
         disableStealthContractsTx = stealthVault.disableStealthContracts([await wallet.generateRandomAddress()]);
       });
       then('tx is reverted with reason', async () => {
-        await expect(disableStealthContractsTx).to.be.revertedWith('SV: job not found');
+        await expect(disableStealthContractsTx).to.be.revertedWith('SV: contract not found');
       });
     });
     when('disabling one of many jobs', () => {
