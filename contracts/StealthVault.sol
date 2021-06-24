@@ -144,22 +144,26 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
   // Caller Jobs
   function enableStealthJob(address _job) external override nonReentrant() {
     _addCallerJob(_job);
+    emit StealthJobEnabled(msg.sender, _job);
   }
 
   function enableStealthJobs(address[] calldata _jobs) external override nonReentrant() {
     for (uint256 i = 0; i < _jobs.length; i++) {
       _addCallerJob(_jobs[i]);
     }
+    emit StealthJobsEnabled(msg.sender, _jobs);
   }
 
   function disableStealthJob(address _job) external override nonReentrant() {
     _removeCallerJob(_job);
+    emit StealthJobDisabled(msg.sender, _job);
   }
 
   function disableStealthJobs(address[] calldata _jobs) external override nonReentrant() {
     for (uint256 i = 0; i < _jobs.length; i++) {
       _removeCallerJob(_jobs[i]);
     }
+    emit StealthJobsDisabled(msg.sender, _jobs);
   }
 
   function _addCallerJob(address _job) internal {
