@@ -13,8 +13,8 @@ async function main() {
   console.log('Added 0.1 bond');
   const stealthRelayer = await stealthRelayerFactory.deploy(deployer.address, stealthVault.address);
   console.log('Deployed stealth relayer', stealthRelayer.address);
-  await stealthVault.enableStealthJob(stealthRelayer.address);
-  console.log('Enabled stealth relayer as a stealth job for caller in stealth vault');
+  await stealthVault.enableStealthContract(stealthRelayer.address);
+  console.log('Enabled stealth relayer as a stealth contract for caller in stealth vault');
   const stealthERC20 = await stealthERC20Factory.deploy('BLA', 'BLA', 0, stealthRelayer.address);
   console.log('Deployed stealth erc20', stealthERC20.address);
   await stealthRelayer.addJob(stealthERC20.address);

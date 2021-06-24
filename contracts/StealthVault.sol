@@ -19,7 +19,7 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
   mapping(address => uint256) public override bonded;
   mapping(address => uint256) public override canUnbondAt;
 
-  mapping(address => EnumerableSet.AddressSet) internal _callerStealthJobs;
+  mapping(address => EnumerableSet.AddressSet) internal _callerStealthContracts;
   mapping(bytes32 => address) public override hashReportedBy;
 
   EnumerableSet.AddressSet internal _callers;
@@ -39,10 +39,10 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     }
   }
 
-  function callerJobs(address _caller) external view override returns (address[] memory _callerJobsList) {
-    _callerJobsList = new address[](_callerStealthJobs[_caller].length());
-    for (uint256 i; i < _callerStealthJobs[_caller].length(); i++) {
-      _callerJobsList[i] = _callerStealthJobs[_caller].at(i);
+  function callerContracts(address _caller) external view override returns (address[] memory _callerContractsList) {
+    _callerContractsList = new address[](_callerStealthContracts[_caller].length());
+    for (uint256 i; i < _callerStealthContracts[_caller].length(); i++) {
+      _callerContractsList[i] = _callerStealthContracts[_caller].at(i);
     }
   }
 
@@ -50,8 +50,8 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     return _callers.contains(_caller);
   }
 
-  function callerStealthJob(address _caller, address _job) external view override returns (bool _enabled) {
-    return _callerStealthJobs[_caller].contains(_job);
+  function callerStealthContract(address _caller, address _contract) external view override returns (bool _enabled) {
+    return _callerStealthContracts[_caller].contains(_contract);
   }
 
   function bond() external payable override nonReentrant() {
@@ -107,7 +107,7 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     // Caller is required to be an EOA to avoid on-chain hash generation to bypass penalty.
     // solhint-disable-next-line avoid-tx-origin
     require(_caller == tx.origin, 'SV: not eoa');
-    require(_callerStealthJobs[_caller].contains(msg.sender), 'SV: job not enabled');
+    require(_callerStealthContracts[_caller].contains(msg.sender), 'SV: contract not enabled');
     require(bonded[_caller] >= _penalty, 'SV: not enough bonded');
     require(canUnbondAt[_caller] == 0, 'SV: unbonding');
 
@@ -141,39 +141,39 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     emit ReportedHash(_hash, msg.sender);
   }
 
-  // Caller Jobs
-  function enableStealthJob(address _job) external override nonReentrant() {
-    _addCallerJob(_job);
-    emit StealthJobEnabled(msg.sender, _job);
+  // Caller Contracts
+  function enableStealthContract(address _contract) external override nonReentrant() {
+    _addCallerContract(_contract);
+    emit StealthJobEnabled(msg.sender, _contract);
   }
 
-  function enableStealthJobs(address[] calldata _jobs) external override nonReentrant() {
-    for (uint256 i = 0; i < _jobs.length; i++) {
-      _addCallerJob(_jobs[i]);
+  function enableStealthContracts(address[] calldata _contracts) external override nonReentrant() {
+    for (uint256 i = 0; i < _contracts.length; i++) {
+      _addCallerContract(_contracts[i]);
     }
-    emit StealthJobsEnabled(msg.sender, _jobs);
+    emit StealthJobsEnabled(msg.sender, _contracts);
   }
 
-  function disableStealthJob(address _job) external override nonReentrant() {
-    _removeCallerJob(_job);
-    emit StealthJobDisabled(msg.sender, _job);
+  function disableStealthContract(address _contract) external override nonReentrant() {
+    _removeCallerContract(_contract);
+    emit StealthJobDisabled(msg.sender, _contract);
   }
 
-  function disableStealthJobs(address[] calldata _jobs) external override nonReentrant() {
-    for (uint256 i = 0; i < _jobs.length; i++) {
-      _removeCallerJob(_jobs[i]);
+  function disableStealthContracts(address[] calldata _contracts) external override nonReentrant() {
+    for (uint256 i = 0; i < _contracts.length; i++) {
+      _removeCallerContract(_contracts[i]);
     }
-    emit StealthJobsDisabled(msg.sender, _jobs);
+    emit StealthJobsDisabled(msg.sender, _contracts);
   }
 
-  function _addCallerJob(address _job) internal {
+  function _addCallerContract(address _contract) internal {
     if (!_callers.contains(msg.sender)) _callers.add(msg.sender);
-    require(_callerStealthJobs[msg.sender].add(_job), 'SV: job already added');
+    require(_callerStealthContracts[msg.sender].add(_contract), 'SV: contract already added');
   }
 
-  function _removeCallerJob(address _job) internal {
-    require(_callerStealthJobs[msg.sender].remove(_job), 'SV: job not found');
-    if (_callerStealthJobs[msg.sender].length() == 0) _callers.remove(msg.sender);
+  function _removeCallerContract(address _contract) internal {
+    require(_callerStealthContracts[msg.sender].remove(_contract), 'SV: contract not found');
+    if (_callerStealthContracts[msg.sender].length() == 0) _callers.remove(msg.sender);
   }
 
   // Governable: restricted-access

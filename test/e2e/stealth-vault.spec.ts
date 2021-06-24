@@ -47,13 +47,13 @@ describe('e2e: StealthVault', () => {
     expect(bonded).to.eq(amount);
     expect(totalBonded).to.eq(amount);
 
-    // alice adds stealthRelayer as a valid job she'll perform stealth txs on
-    await stealthVault.connect(alice).enableStealthJob(stealthRelayer.address);
+    // alice adds stealthRelayer as a valid contract she'll perform stealth txs on
+    await stealthVault.connect(alice).enableStealthContract(stealthRelayer.address);
     const callers = await stealthVault.callers();
-    const aliceJobs = await stealthVault.callerJobs(alice.address);
+    const aliceContracts = await stealthVault.callerContracts(alice.address);
 
     expect(callers).to.be.deep.eq([alice.address]);
-    expect(aliceJobs).to.be.deep.eq([stealthRelayer.address]);
+    expect(aliceContracts).to.be.deep.eq([stealthRelayer.address]);
 
     // call stealthERC20 through stealth relayer
     const mintAmount = utils.parseEther('100');
