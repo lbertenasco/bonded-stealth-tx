@@ -99,9 +99,9 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
   }
 
   modifier onlyEoA() {
-    // 990237 is the gas consumed up to this point on StealthRelayer
-    uint256 _gasLeftCorrected = gasleft() + 990237;
-    require(_gasLeftCorrected > (block.gaslimit / 64) * 63, 'SV: eoa gas check failed');
+    // 33_228 is the gas consumed up to this point from StealthRelayer
+    uint256 _gasLeftCorrected = gasleft() + 33_228;
+    require(_gasLeftCorrected >= (block.gaslimit * 63) / 64, 'SV: eoa gas check failed');
     _;
   }
 
