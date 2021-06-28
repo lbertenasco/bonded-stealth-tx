@@ -184,7 +184,8 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
   }
 
   // Governable: restricted-access
-  function setGasBuffer(uint256 _gasBuffer) external override onlyGovernor {
+  function setGasBuffer(uint256 _gasBuffer) external virtual override onlyGovernor {
+    require(_gasBuffer < (block.gaslimit * 63) / 64, 'SV: gasBuffer too high');
     gasBuffer = _gasBuffer;
   }
 

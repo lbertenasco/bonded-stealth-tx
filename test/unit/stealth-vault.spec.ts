@@ -116,6 +116,37 @@ describe('StealthVault', () => {
     });
   });
 
+  describe('setGasBuffer', () => {
+    const newGasBuffer = 40_000;
+    const blockGasLimit = BigNumber.from(12_450_000);
+    let setGasBufferTx: Promise<TransactionResponse>;
+
+    when('newGasBuffer is low', () => {
+      given(async () => {
+        await stealthVault.setGasBuffer(newGasBuffer);
+      });
+      then('updates gasBuffer', async () => {
+        expect(await stealthVault.gasBuffer()).to.equal(newGasBuffer);
+      });
+    });
+    when('newGasBuffer is too high', () => {
+      given(async () => {
+        setGasBufferTx = stealthVault.setGasBuffer(blockGasLimit.mul(63).div(64).add(1));
+      });
+      then('reverts', async () => {
+        await expect(setGasBufferTx).to.be.revertedWith('SV: gasBuffer too high');
+      });
+    });
+    when('newGasBuffer is quite not too high', () => {
+      given(async () => {
+        await stealthVault.setGasBuffer(blockGasLimit.mul(63).div(64).sub(1));
+      });
+      then('updates gasBuffer', async () => {
+        expect(await stealthVault.gasBuffer()).to.equal(blockGasLimit.mul(63).div(64).sub(1));
+      });
+    });
+  });
+
   describe('transferGovernorBond', () => {
     let caller: string;
     let initialGovernorBond = utils.parseEther('102');

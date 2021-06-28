@@ -15,4 +15,8 @@ contract StealthVaultEOAMock is StealthVault {
     _penalty;
     return true;
   }
+
+  function setGasBuffer(uint256 _gasBuffer) external override onlyGovernor {
+    gasBuffer = _gasBuffer;
+  }
 }
