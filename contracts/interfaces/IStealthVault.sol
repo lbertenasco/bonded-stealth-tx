@@ -9,13 +9,13 @@ interface IStealthVault {
   event PenaltyApplied(bytes32 _hash, address _caller, uint256 _penalty, address _reportedBy);
   event ValidatedHash(bytes32 _hash, address _caller, uint256 _penalty);
 
-  event StealthJobEnabled(address indexed _caller, address _contract);
+  event StealthContractEnabled(address indexed _caller, address _contract);
 
-  event StealthJobsEnabled(address indexed _caller, address[] _contracts);
+  event StealthContractsEnabled(address indexed _caller, address[] _contracts);
 
-  event StealthJobDisabled(address indexed _caller, address _contract);
+  event StealthContractDisabled(address indexed _caller, address _contract);
 
-  event StealthJobsDisabled(address indexed _caller, address[] _contracts);
+  event StealthContractsDisabled(address indexed _caller, address[] _contracts);
 
   function isStealthVault() external pure returns (bool);
 

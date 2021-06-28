@@ -151,26 +151,26 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
   // Caller Contracts
   function enableStealthContract(address _contract) external override nonReentrant() {
     _addCallerContract(_contract);
-    emit StealthJobEnabled(msg.sender, _contract);
+    emit StealthContractEnabled(msg.sender, _contract);
   }
 
   function enableStealthContracts(address[] calldata _contracts) external override nonReentrant() {
     for (uint256 i = 0; i < _contracts.length; i++) {
       _addCallerContract(_contracts[i]);
     }
-    emit StealthJobsEnabled(msg.sender, _contracts);
+    emit StealthContractsEnabled(msg.sender, _contracts);
   }
 
   function disableStealthContract(address _contract) external override nonReentrant() {
     _removeCallerContract(_contract);
-    emit StealthJobDisabled(msg.sender, _contract);
+    emit StealthContractDisabled(msg.sender, _contract);
   }
 
   function disableStealthContracts(address[] calldata _contracts) external override nonReentrant() {
     for (uint256 i = 0; i < _contracts.length; i++) {
       _removeCallerContract(_contracts[i]);
     }
-    emit StealthJobsDisabled(msg.sender, _contracts);
+    emit StealthContractsDisabled(msg.sender, _contracts);
   }
 
   function _addCallerContract(address _contract) internal {

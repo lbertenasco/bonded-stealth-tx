@@ -51,17 +51,17 @@ async function main() {
       console.log('Updating penalty to', utils.formatEther(penalty));
       stealthRelayerPenalty = penalty;
     });
-    stealthVault.on('StealthJobEnabled', (caller: string, job: string) => {
+    stealthVault.on('StealthContractEnabled', (caller: string, job: string) => {
       addCallerStealthContracts(caller, [job]);
     });
-    stealthVault.on('StealthJobsEnabled', (caller: string, jobs: string[]) => {
+    stealthVault.on('StealthContractsEnabled', (caller: string, jobs: string[]) => {
       addCallerStealthContracts(caller, jobs);
     });
-    stealthVault.on('StealthJobDisabled', (caller: string, job: string) => {
-      removeCallerStealthJobs(caller, [job]);
+    stealthVault.on('StealthContractDisabled', (caller: string, job: string) => {
+      removeCallerStealthContracts(caller, [job]);
     });
-    stealthVault.on('StealthJobsDisabled', (caller: string, jobs: string[]) => {
-      removeCallerStealthJobs(caller, jobs);
+    stealthVault.on('StealthContractsDisabled', (caller: string, jobs: string[]) => {
+      removeCallerStealthContracts(caller, jobs);
     });
     stealthVault.on('Bonded', (caller: string, bonded: BigNumber) => {
       addBond(caller, bonded);
@@ -155,7 +155,7 @@ function addCallerStealthContracts(caller: string, callerContracts: string[]): v
   jobs = _.union(jobs, callerContracts);
 }
 
-function removeCallerStealthJobs(caller: string, callerContracts: string[]): void {
+function removeCallerStealthContracts(caller: string, callerContracts: string[]): void {
   console.log('Removing', callerContracts.length, 'jobs of', caller);
   callerContracts = callerContracts.map((cj) => normalizeAddress(cj));
   caller = normalizeAddress(caller);
