@@ -16,7 +16,7 @@ describe('e2e: eoa check', () => {
   let proxyMockFactory: ContractFactory;
   let proxyMock: Contract;
   const penalty = utils.parseEther('1');
-  const blockGasLimit = BigNumber.from(12_450_000);
+  let blockGasLimit: BigNumber;
 
   before('Setup accounts and contracts', async () => {
     [owner, alice, bob] = await ethers.getSigners();
@@ -24,6 +24,8 @@ describe('e2e: eoa check', () => {
     stealthVaultFactory = await ethers.getContractFactory('StealthVault');
     stealthRelayerFactory = await ethers.getContractFactory('StealthRelayer');
     stealthERC20Factory = await ethers.getContractFactory('StealthERC20');
+    const pendingBlock = await ethers.provider.send('eth_getBlockByNumber', ['latest', false]);
+    blockGasLimit = BigNumber.from(pendingBlock.gasLimit);
   });
 
   beforeEach('EoA checks', async () => {

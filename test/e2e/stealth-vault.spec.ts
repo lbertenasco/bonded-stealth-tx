@@ -3,7 +3,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { utils, BigNumber } from 'ethers';
-const blockGasLimit = BigNumber.from(12_450_000);
+let blockGasLimit: BigNumber;
 
 describe('e2e: StealthVault', () => {
   let owner: SignerWithAddress, alice: SignerWithAddress, bob: SignerWithAddress;
@@ -22,6 +22,8 @@ describe('e2e: StealthVault', () => {
     stealthVaultFactory = await ethers.getContractFactory('StealthVault');
     stealthRelayerFactory = await ethers.getContractFactory('StealthRelayer');
     stealthERC20Factory = await ethers.getContractFactory('StealthERC20');
+    const pendingBlock = await ethers.provider.send('eth_getBlockByNumber', ['latest', false]);
+    blockGasLimit = BigNumber.from(pendingBlock.gasLimit);
   });
 
   beforeEach('StealthVault', async () => {

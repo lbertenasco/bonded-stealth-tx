@@ -14,12 +14,15 @@ describe('StealthVault', () => {
   let jobMockFactory: ContractFactory;
   let stealthVaultFactory: ContractFactory;
   let stealthVault: Contract;
+  let blockGasLimit: BigNumber;
 
   before('Setup accounts and contracts', async () => {
     [governor] = await ethers.getSigners();
     stealthVaultFactory = await ethers.getContractFactory('contracts/mock/StealthVault.sol:StealthVaultMock');
     jobMockFactory = await ethers.getContractFactory('contracts/mock/StealthVault.sol:StealthContractMock');
     forceETHFactory = await ethers.getContractFactory('contracts/mock/ForceETH.sol:ForceETH');
+    const pendingBlock = await ethers.provider.send('eth_getBlockByNumber', ['latest', false]);
+    blockGasLimit = BigNumber.from(pendingBlock.gasLimit);
   });
 
   beforeEach('StealthVault', async () => {
@@ -118,7 +121,6 @@ describe('StealthVault', () => {
 
   describe('setGasBuffer', () => {
     const newGasBuffer = 40_000;
-    const blockGasLimit = BigNumber.from(12_450_000);
     let setGasBufferTx: Promise<TransactionResponse>;
 
     when('newGasBuffer is low', () => {
