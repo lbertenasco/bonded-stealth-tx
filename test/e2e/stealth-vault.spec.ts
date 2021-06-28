@@ -2,7 +2,8 @@ import { Contract, ContractFactory } from '@ethersproject/contracts';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
-import { utils } from 'ethers';
+import { utils, BigNumber } from 'ethers';
+const blockGasLimit = BigNumber.from(12_450_000);
 
 describe('e2e: StealthVault', () => {
   let owner: SignerWithAddress, alice: SignerWithAddress, bob: SignerWithAddress;
@@ -67,7 +68,8 @@ describe('e2e: StealthVault', () => {
       stealthERC20.address, // address _job,
       callData, // bytes memory _callData,
       stealthHash, // bytes32 _stealthHash,
-      blockNumber + 1 // uint256 _blockNumber
+      blockNumber + 1, // uint256 _blockNumber
+      { gasLimit: blockGasLimit }
     );
 
     const aliceStealthERC20Balance = await stealthERC20.balanceOf(alice.address);
@@ -78,7 +80,8 @@ describe('e2e: StealthVault', () => {
         stealthERC20.address, // address _job,
         callData, // bytes memory _callData,
         stealthHash, // bytes32 _stealthHash,
-        blockNumber + 1 // uint256 _blockNumber
+        blockNumber + 1, // uint256 _blockNumber
+        { gasLimit: blockGasLimit }
       )
     ).to.be.revertedWith('ST: wrong block');
 
@@ -92,7 +95,8 @@ describe('e2e: StealthVault', () => {
       stealthERC20.address, // address _job,
       callData, // bytes memory _callData,
       stealthHash, // bytes32 _stealthHash,
-      blockNumber + 1 // uint256 _blockNumber
+      blockNumber + 1, // uint256 _blockNumber
+      { gasLimit: blockGasLimit }
     );
 
     // balance should not change

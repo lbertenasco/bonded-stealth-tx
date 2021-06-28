@@ -43,7 +43,7 @@ contract StealthVaultMock is StealthVault {
   } 
 }
 
-contract JobMock {
+contract StealthContractMock {
   address public stealthVault;
   constructor(address _stealthVault) {
     stealthVault = _stealthVault;
@@ -52,7 +52,7 @@ contract JobMock {
   function validateHash(
     bytes32 _hash,
     uint256 _penalty
-  ) external returns (bool) {
+  ) external returns (bool _valid) {
     return StealthVault(stealthVault).validateHash(msg.sender, _hash, _penalty);
   }
 }

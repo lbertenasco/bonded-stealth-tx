@@ -18,7 +18,7 @@ describe('StealthVault', () => {
   before('Setup accounts and contracts', async () => {
     [governor] = await ethers.getSigners();
     stealthVaultFactory = await ethers.getContractFactory('contracts/mock/StealthVault.sol:StealthVaultMock');
-    jobMockFactory = await ethers.getContractFactory('contracts/mock/StealthVault.sol:JobMock');
+    jobMockFactory = await ethers.getContractFactory('contracts/mock/StealthVault.sol:StealthContractMock');
     forceETHFactory = await ethers.getContractFactory('contracts/mock/ForceETH.sol:ForceETH');
   });
 

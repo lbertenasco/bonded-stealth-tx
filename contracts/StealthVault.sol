@@ -99,7 +99,7 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     bonded[governor] = bonded[governor] + (_penalty - _amountReward);
   }
 
-  modifier onlyEoA() {
+  modifier onlyEOA() {
     uint256 _gasLeftPlusBuffer = gasleft() + gasBuffer;
     require(_gasLeftPlusBuffer >= (block.gaslimit * 63) / 64, 'SV: eoa gas check failed');
     _;
@@ -110,7 +110,7 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     address _caller,
     bytes32 _hash,
     uint256 _penalty
-  ) external override onlyEoA() nonReentrant() returns (bool) {
+  ) external virtual override onlyEOA() nonReentrant() returns (bool _valid) {
     // Caller is required to be an EOA to avoid on-chain hash generation to bypass penalty.
     // solhint-disable-next-line avoid-tx-origin
     require(_caller == tx.origin, 'SV: not eoa');
@@ -129,7 +129,7 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
       return false;
     }
     emit ValidatedHash(_hash, _caller, _penalty);
-    // valid: has was not reported
+    // valid: hash was not reported
     return true;
   }
 
