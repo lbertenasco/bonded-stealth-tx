@@ -15,6 +15,7 @@ import './interfaces/IStealthVault.sol';
 contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthVault {
   using EnumerableSet for EnumerableSet.AddressSet;
 
+  uint256 public override gasBuffer = 69_420; // why not
   uint256 public override totalBonded;
   mapping(address => uint256) public override bonded;
   mapping(address => uint256) public override canUnbondAt;
@@ -99,9 +100,8 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
   }
 
   modifier onlyEoA() {
-    // 33_228 is the gas consumed up to this point from StealthRelayer
-    uint256 _gasLeftCorrected = gasleft() + 33_228;
-    require(_gasLeftCorrected >= (block.gaslimit * 63) / 64, 'SV: eoa gas check failed');
+    uint256 _gasLeftPlusBuffer = gasleft() + gasBuffer;
+    require(_gasLeftPlusBuffer >= (block.gaslimit * 63) / 64, 'SV: eoa gas check failed');
     _;
   }
 
@@ -184,6 +184,10 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
   }
 
   // Governable: restricted-access
+  function setGasBuffer(uint256 _gasBuffer) external override onlyGovernor {
+    gasBuffer = _gasBuffer;
+  }
+
   function transferGovernorBond(address _caller, uint256 _amount) external override onlyGovernor {
     bonded[governor] = bonded[governor] - _amount;
     bonded[_caller] = bonded[_caller] + _amount;

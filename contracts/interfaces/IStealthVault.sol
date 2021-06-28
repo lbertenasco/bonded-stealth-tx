@@ -25,6 +25,8 @@ interface IStealthVault {
   function callerContracts(address _caller) external view returns (address[] memory _contracts);
 
   // global bond
+  function gasBuffer() external view returns (uint256 _gasBuffer);
+
   function totalBonded() external view returns (uint256 _totalBonded);
 
   function bonded(address _caller) external view returns (uint256 _bond);
@@ -40,6 +42,8 @@ interface IStealthVault {
   function hashReportedBy(bytes32 _hash) external view returns (address _reportedBy);
 
   // governor
+  function setGasBuffer(uint256 _gasBuffer) external;
+
   function transferGovernorBond(address _caller, uint256 _amount) external;
 
   function transferBondToGovernor(address _caller, uint256 _amount) external;

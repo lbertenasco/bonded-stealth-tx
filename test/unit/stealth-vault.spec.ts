@@ -24,6 +24,7 @@ describe('StealthVault', () => {
 
   beforeEach('StealthVault', async () => {
     stealthVault = await stealthVaultFactory.deploy();
+    await stealthVault.setGasBuffer(1_000_000);
   });
 
   it('reverts when sending eth', async () => {

@@ -78,6 +78,8 @@ describe('e2e: eoa check', () => {
     const stealthHash = ethers.utils.solidityKeccak256(['string'], ['random-secret-hash']);
     let blockNumber = await ethers.provider.getBlockNumber();
 
+    // 33_228 is the gas consumed up to this point from StealthRelayer
+
     /* How to get gas used on stealthRelayer up-to EOA check:
       - get gasused() - gasLimit63 (should give you a negative number)
         - remember to call from stealthRelayer
