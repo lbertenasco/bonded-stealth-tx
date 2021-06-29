@@ -9,7 +9,7 @@ contract StealthVaultEOAMock is StealthVault {
     address _caller,
     bytes32 _hash,
     uint256 _penalty
-  ) external override onlyEOA() nonReentrant() returns (bool _valid) {
+  ) external override OnlyOneCallStack() nonReentrant() returns (bool _valid) {
     _caller;
     _hash;
     _penalty;
