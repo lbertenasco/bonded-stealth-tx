@@ -37,10 +37,10 @@ async function main() {
     callers = (await stealthVault.callers()).map((caller: string) => caller.toLowerCase());
     console.log('Getting callers jobs ...');
     for (let i = 0; i < callers.length; i++) {
-      const callerJobs = (await stealthVault.callerJobs(callers[i])).map((callerJob: string) => callerJob.toLowerCase());
-      console.log('Adding', callerJobs.length, 'jobs of', callers[i]);
-      callersJobs[callers[i]] = callerJobs;
-      jobs = _.merge(jobs, callerJobs);
+      const callerContracts = (await stealthVault.callerContracts(callers[i])).map((callerJob: string) => callerJob.toLowerCase());
+      console.log('Adding', callerContracts.length, 'jobs of', callers[i]);
+      callersJobs[callers[i]] = callerContracts;
+      jobs = _.merge(jobs, callerContracts);
     }
     console.log('Hooking up to mempool ...');
 

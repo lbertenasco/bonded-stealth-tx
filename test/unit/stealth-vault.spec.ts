@@ -14,16 +14,20 @@ describe('StealthVault', () => {
   let jobMockFactory: ContractFactory;
   let stealthVaultFactory: ContractFactory;
   let stealthVault: Contract;
+  let blockGasLimit: BigNumber;
 
   before('Setup accounts and contracts', async () => {
     [governor] = await ethers.getSigners();
     stealthVaultFactory = await ethers.getContractFactory('contracts/mock/StealthVault.sol:StealthVaultMock');
-    jobMockFactory = await ethers.getContractFactory('contracts/mock/StealthVault.sol:JobMock');
+    jobMockFactory = await ethers.getContractFactory('contracts/mock/StealthVault.sol:StealthContractMock');
     forceETHFactory = await ethers.getContractFactory('contracts/mock/ForceETH.sol:ForceETH');
+    const pendingBlock = await ethers.provider.send('eth_getBlockByNumber', ['latest', false]);
+    blockGasLimit = BigNumber.from(pendingBlock.gasLimit);
   });
 
   beforeEach('StealthVault', async () => {
     stealthVault = await stealthVaultFactory.deploy();
+    await stealthVault.setGasBuffer(1_000_000);
   });
 
   it('reverts when sending eth', async () => {
@@ -57,10 +61,10 @@ describe('StealthVault', () => {
       });
     });
   });
-  describe('callerJobs', () => {
+  describe('callerContracts', () => {
     when('caller doesnt have enabled jobs', () => {
       then('returns empty array', async () => {
-        expect(await stealthVault.callerJobs(await wallet.generateRandomAddress())).to.be.empty;
+        expect(await stealthVault.callerContracts(await wallet.generateRandomAddress())).to.be.empty;
       });
     });
     when('caller does have enabled jobs', () => {
@@ -69,12 +73,12 @@ describe('StealthVault', () => {
       given(async () => {
         caller = await wallet.generateRandomAddress();
         callerEnabledJobs = [await wallet.generateRandomAddress(), await wallet.generateRandomAddress(), await wallet.generateRandomAddress()];
-        await stealthVault.addCallerStealthJob(caller, callerEnabledJobs[0]);
-        await stealthVault.addCallerStealthJob(caller, callerEnabledJobs[1]);
-        await stealthVault.addCallerStealthJob(caller, callerEnabledJobs[2]);
+        await stealthVault.addCallerStealthContract(caller, callerEnabledJobs[0]);
+        await stealthVault.addCallerStealthContract(caller, callerEnabledJobs[1]);
+        await stealthVault.addCallerStealthContract(caller, callerEnabledJobs[2]);
       });
       then('returns array with correct values', async () => {
-        expect(await stealthVault.callerJobs(caller)).to.eql(callerEnabledJobs);
+        expect(await stealthVault.callerContracts(caller)).to.eql(callerEnabledJobs);
       });
     });
   });
@@ -95,10 +99,10 @@ describe('StealthVault', () => {
       });
     });
   });
-  describe('callerStealthJob', () => {
+  describe('callerStealthContract', () => {
     when('caller does not have job enabled', () => {
       then('returns false', async () => {
-        expect(await stealthVault.callerStealthJob(await wallet.generateRandomAddress(), await wallet.generateRandomAddress())).to.be.false;
+        expect(await stealthVault.callerStealthContract(await wallet.generateRandomAddress(), await wallet.generateRandomAddress())).to.be.false;
       });
     });
     when('caller has job enabled', () => {
@@ -107,10 +111,40 @@ describe('StealthVault', () => {
       given(async () => {
         caller = await wallet.generateRandomAddress();
         job = await wallet.generateRandomAddress();
-        await stealthVault.addCallerStealthJob(caller, job);
+        await stealthVault.addCallerStealthContract(caller, job);
       });
       then('returns true', async () => {
-        expect(await stealthVault.callerStealthJob(caller, job)).to.be.true;
+        expect(await stealthVault.callerStealthContract(caller, job)).to.be.true;
+      });
+    });
+  });
+
+  describe('setGasBuffer', () => {
+    const newGasBuffer = 40_000;
+    let setGasBufferTx: Promise<TransactionResponse>;
+
+    when('newGasBuffer is low', () => {
+      given(async () => {
+        await stealthVault.setGasBuffer(newGasBuffer);
+      });
+      then('updates gasBuffer', async () => {
+        expect(await stealthVault.gasBuffer()).to.equal(newGasBuffer);
+      });
+    });
+    when('newGasBuffer is too high', () => {
+      given(async () => {
+        setGasBufferTx = stealthVault.setGasBuffer(blockGasLimit.mul(63).div(64).add(1));
+      });
+      then('reverts', async () => {
+        await expect(setGasBufferTx).to.be.revertedWith('SV: gasBuffer too high');
+      });
+    });
+    when('newGasBuffer is quite not too high', () => {
+      given(async () => {
+        await stealthVault.setGasBuffer(blockGasLimit.mul(63).div(64).sub(1));
+      });
+      then('updates gasBuffer', async () => {
+        expect(await stealthVault.gasBuffer()).to.equal(blockGasLimit.mul(63).div(64).sub(1));
       });
     });
   });
@@ -132,6 +166,26 @@ describe('StealthVault', () => {
     });
     then('increases bond of caller', async () => {
       expect(await stealthVault.bonded(caller)).to.equal(initialCallerBond.add(transfered));
+    });
+  });
+
+  describe('transferBondToGovernor', () => {
+    let caller: string;
+    let initialGovernorBond = utils.parseEther('100');
+    let initialCallerBond = utils.parseEther('20');
+    const transfered = initialCallerBond.div(2);
+    given(async () => {
+      caller = await wallet.generateRandomAddress();
+      await stealthVault.setBonded(governor.address, initialGovernorBond);
+      await stealthVault.setBonded(caller, initialCallerBond);
+      await stealthVault.transferBondToGovernor(caller, transfered);
+    });
+    // only governor
+    then('reduces bond of governor', async () => {
+      expect(await stealthVault.bonded(governor.address)).to.equal(initialGovernorBond.add(transfered));
+    });
+    then('increases bond of caller', async () => {
+      expect(await stealthVault.bonded(caller)).to.equal(initialCallerBond.sub(transfered));
     });
   });
 
@@ -425,7 +479,7 @@ describe('StealthVault', () => {
         validateTx = stealthVault.connect(caller).validateHash(caller.address, utils.formatBytes32String('some-hash'), 0, { gasPrice: 0 });
       });
       then('tx is reverted with reason', async () => {
-        await expect(validateTx).to.be.revertedWith('SV: job not enabled');
+        await expect(validateTx).to.be.revertedWith('SV: contract not enabled');
       });
     });
     when('caller does not have enough bonded for penalty', () => {
@@ -433,7 +487,7 @@ describe('StealthVault', () => {
       let jobMock: Contract;
       given(async () => {
         jobMock = await jobMockFactory.deploy(stealthVault.address);
-        await stealthVault.addCallerStealthJob(caller.address, jobMock.address);
+        await stealthVault.addCallerStealthContract(caller.address, jobMock.address);
         validateTx = jobMock.connect(caller).validateHash(utils.formatBytes32String('some-hash'), 1, { gasPrice: 0 });
       });
       then('tx is reverted with reason', async () => {
@@ -447,7 +501,7 @@ describe('StealthVault', () => {
       given(async () => {
         jobMock = await jobMockFactory.deploy(stealthVault.address);
         await stealthVault.setBonded(caller.address, penalty);
-        await stealthVault.addCallerStealthJob(caller.address, jobMock.address);
+        await stealthVault.addCallerStealthContract(caller.address, jobMock.address);
         await stealthVault.connect(caller).startUnbond({ gasPrice: 0 });
         validateTx = jobMock.connect(caller).validateHash(utils.formatBytes32String('some-hash'), penalty, { gasPrice: 0 });
       });
@@ -462,7 +516,7 @@ describe('StealthVault', () => {
       given(async () => {
         jobMock = await jobMockFactory.deploy(stealthVault.address);
         await stealthVault.setBonded(caller.address, penalty);
-        await stealthVault.addCallerStealthJob(caller.address, jobMock.address);
+        await stealthVault.addCallerStealthContract(caller.address, jobMock.address);
         await stealthVault.connect(caller).startUnbond({ gasPrice: 0 });
         await stealthVault.connect(caller).cancelUnbond({ gasPrice: 0 });
         validHash = await jobMock.connect(caller).callStatic.validateHash(utils.formatBytes32String('some-hash'), penalty);
@@ -480,7 +534,7 @@ describe('StealthVault', () => {
       given(async () => {
         jobMock = await jobMockFactory.deploy(stealthVault.address);
         await stealthVault.setBonded(caller.address, penalty);
-        await stealthVault.addCallerStealthJob(caller.address, jobMock.address);
+        await stealthVault.addCallerStealthContract(caller.address, jobMock.address);
         validHash = await jobMock.connect(caller).callStatic.validateHash(hash, penalty);
         validateTx = await jobMock.connect(caller).validateHash(hash, penalty, { gasPrice: 0 });
       });
@@ -501,7 +555,7 @@ describe('StealthVault', () => {
       given(async () => {
         jobMock = await jobMockFactory.deploy(stealthVault.address);
         await stealthVault.setBonded(caller.address, penalty);
-        await stealthVault.addCallerStealthJob(caller.address, jobMock.address);
+        await stealthVault.addCallerStealthContract(caller.address, jobMock.address);
         await stealthVault.setHashReportedBy(hash, hashReporter);
         validHash = await jobMock.connect(caller).callStatic.validateHash(hash, penalty);
         validateTx = await jobMock.connect(caller).validateHash(hash, penalty, { gasPrice: 0 });
@@ -548,28 +602,28 @@ describe('StealthVault', () => {
     });
   });
 
-  describe('enableStealthJob', () => {
+  describe('enableStealthContract', () => {
     when('enabling already enabled job', () => {
       let stealthJob: string;
-      let enableStealthJobTx: Promise<TransactionResponse>;
+      let enableStealthContractTx: Promise<TransactionResponse>;
       given(async () => {
         stealthJob = await wallet.generateRandomAddress();
-        await stealthVault.addCallerJob(governor.address, stealthJob);
-        enableStealthJobTx = stealthVault.enableStealthJob(stealthJob);
+        await stealthVault.addCallerContract(governor.address, stealthJob);
+        enableStealthContractTx = stealthVault.enableStealthContract(stealthJob);
       });
       then('tx is reverted with reason', async () => {
-        await expect(enableStealthJobTx).to.be.revertedWith('SV: job already added');
+        await expect(enableStealthContractTx).to.be.revertedWith('SV: contract already added');
       });
     });
     when('enabling a valid job for the first time', () => {
       let stealthJob: string;
-      let enableStealthJobTx: TransactionResponse;
+      let enableStealthContractTx: TransactionResponse;
       given(async () => {
         stealthJob = await wallet.generateRandomAddress();
-        enableStealthJobTx = await stealthVault.enableStealthJob(stealthJob);
+        enableStealthContractTx = await stealthVault.enableStealthContract(stealthJob);
       });
       then('job gets added to caller enabled jobs', async () => {
-        expect(await stealthVault.callerJobs(governor.address)).to.have.members([stealthJob]);
+        expect(await stealthVault.callerContracts(governor.address)).to.have.members([stealthJob]);
       });
       then('caller gets added to callers set', async () => {
         expect(await stealthVault.callers()).to.have.members([governor.address]);
@@ -578,42 +632,42 @@ describe('StealthVault', () => {
     when('enabling a valid job', () => {
       let stealthJobAdded: string;
       let stealthJob: string;
-      let enableStealthJobTx: TransactionResponse;
+      let enableStealthContractTx: TransactionResponse;
       given(async () => {
         stealthJob = await wallet.generateRandomAddress();
         stealthJobAdded = await wallet.generateRandomAddress();
-        await stealthVault.addCallerJob(governor.address, stealthJobAdded);
-        enableStealthJobTx = await stealthVault.enableStealthJob(stealthJob);
+        await stealthVault.addCallerContract(governor.address, stealthJobAdded);
+        enableStealthContractTx = await stealthVault.enableStealthContract(stealthJob);
       });
       then('job gets added to caller enabled jobs', async () => {
-        expect(await stealthVault.callerJobs(governor.address)).to.have.members([stealthJob, stealthJobAdded]);
+        expect(await stealthVault.callerContracts(governor.address)).to.have.members([stealthJob, stealthJobAdded]);
       });
     });
   });
-  describe('enableStealthJobs', () => {
+  describe('enableStealthContracts', () => {
     when('enabling already enabled job', () => {
       let stealthJob: string;
-      let enableStealthJobsTx: Promise<TransactionResponse>;
+      let enableStealthContractsTx: Promise<TransactionResponse>;
       given(async () => {
         stealthJob = await wallet.generateRandomAddress();
-        await stealthVault.addCallerJob(governor.address, stealthJob);
-        enableStealthJobsTx = stealthVault.enableStealthJobs([stealthJob]);
+        await stealthVault.addCallerContract(governor.address, stealthJob);
+        enableStealthContractsTx = stealthVault.enableStealthContracts([stealthJob]);
       });
       then('tx is reverted with reason', async () => {
-        await expect(enableStealthJobsTx).to.be.revertedWith('SV: job already added');
+        await expect(enableStealthContractsTx).to.be.revertedWith('SV: contract already added');
       });
     });
     when('enabling a valid jobs for the first time', () => {
       let stealthJob1: string;
       let stealthJob2: string;
-      let enableStealthJobsTx: TransactionResponse;
+      let enableStealthContractsTx: TransactionResponse;
       given(async () => {
         stealthJob1 = await wallet.generateRandomAddress();
         stealthJob2 = await wallet.generateRandomAddress();
-        enableStealthJobsTx = await stealthVault.enableStealthJobs([stealthJob1, stealthJob2]);
+        enableStealthContractsTx = await stealthVault.enableStealthContracts([stealthJob1, stealthJob2]);
       });
       then('jobs gets added to caller enabled jobs', async () => {
-        expect(await stealthVault.callerJobs(governor.address)).to.have.members([stealthJob1, stealthJob2]);
+        expect(await stealthVault.callerContracts(governor.address)).to.have.members([stealthJob1, stealthJob2]);
       });
       then('caller gets added to callers set', async () => {
         expect(await stealthVault.callers()).to.have.members([governor.address]);
@@ -623,103 +677,103 @@ describe('StealthVault', () => {
       let stealthJobAdded: string;
       let stealthJob1: string;
       let stealthJob2: string;
-      let enableStealthJobsTx: TransactionResponse;
+      let enableStealthContractsTx: TransactionResponse;
       given(async () => {
         stealthJob1 = await wallet.generateRandomAddress();
         stealthJob2 = await wallet.generateRandomAddress();
         stealthJobAdded = await wallet.generateRandomAddress();
-        await stealthVault.addCallerJob(governor.address, stealthJobAdded);
-        enableStealthJobsTx = await stealthVault.enableStealthJobs([stealthJob1, stealthJob2]);
+        await stealthVault.addCallerContract(governor.address, stealthJobAdded);
+        enableStealthContractsTx = await stealthVault.enableStealthContracts([stealthJob1, stealthJob2]);
       });
       then('job gets added to caller enabled jobs', async () => {
-        expect(await stealthVault.callerJobs(governor.address)).to.have.members([stealthJob1, stealthJob2, stealthJobAdded]);
+        expect(await stealthVault.callerContracts(governor.address)).to.have.members([stealthJob1, stealthJob2, stealthJobAdded]);
       });
     });
   });
-  describe('disableStealthJob', () => {
+  describe('disableStealthContract', () => {
     when('disabling a job that is not enabled', () => {
-      let disableStealthJobTx: Promise<TransactionResponse>;
+      let disableStealthContractTx: Promise<TransactionResponse>;
       given(async () => {
-        disableStealthJobTx = stealthVault.disableStealthJob(await wallet.generateRandomAddress());
+        disableStealthContractTx = stealthVault.disableStealthContract(await wallet.generateRandomAddress());
       });
       then('tx is reverted with reason', async () => {
-        await expect(disableStealthJobTx).to.be.revertedWith('SV: job not found');
+        await expect(disableStealthContractTx).to.be.revertedWith('SV: contract not found');
       });
     });
     when('disabling one of many jobs', () => {
       let stealthJobAdded1: string;
       let stealthJobAdded2: string;
-      let disableStealthJobTx: TransactionResponse;
+      let disableStealthContractTx: TransactionResponse;
       given(async () => {
         stealthJobAdded1 = await wallet.generateRandomAddress();
         stealthJobAdded2 = await wallet.generateRandomAddress();
-        await stealthVault.addCallerJob(governor.address, stealthJobAdded1);
-        await stealthVault.addCallerJob(governor.address, stealthJobAdded2);
-        disableStealthJobTx = await stealthVault.disableStealthJob(stealthJobAdded1);
+        await stealthVault.addCallerContract(governor.address, stealthJobAdded1);
+        await stealthVault.addCallerContract(governor.address, stealthJobAdded2);
+        disableStealthContractTx = await stealthVault.disableStealthContract(stealthJobAdded1);
       });
       then('job gets removed from enabled jobs', async () => {
-        expect(await stealthVault.callerJobs(governor.address)).to.have.members([stealthJobAdded2]);
+        expect(await stealthVault.callerContracts(governor.address)).to.have.members([stealthJobAdded2]);
       });
     });
     when('disabling last enabled job', () => {
       let stealthJobAdded: string;
-      let disableStealthJobTx: TransactionResponse;
+      let disableStealthContractTx: TransactionResponse;
       given(async () => {
         stealthJobAdded = await wallet.generateRandomAddress();
         await stealthVault.addCaller(governor.address);
-        await stealthVault.addCallerJob(governor.address, stealthJobAdded);
-        disableStealthJobTx = await stealthVault.disableStealthJob(stealthJobAdded);
+        await stealthVault.addCallerContract(governor.address, stealthJobAdded);
+        disableStealthContractTx = await stealthVault.disableStealthContract(stealthJobAdded);
       });
       then('job gets removed from enabled jobs', async () => {
-        expect(await stealthVault.callerJobs(governor.address)).to.be.empty;
+        expect(await stealthVault.callerContracts(governor.address)).to.be.empty;
       });
       then('caller gets removed from callers set', async () => {
         expect(await stealthVault.callers()).to.be.empty;
       });
     });
   });
-  describe('disableStealthJobs', () => {
+  describe('disableStealthContracts', () => {
     when('disabling jobs that are not enabled', () => {
-      let disableStealthJobsTx: Promise<TransactionResponse>;
+      let disableStealthContractsTx: Promise<TransactionResponse>;
       given(async () => {
-        disableStealthJobsTx = stealthVault.disableStealthJobs([await wallet.generateRandomAddress()]);
+        disableStealthContractsTx = stealthVault.disableStealthContracts([await wallet.generateRandomAddress()]);
       });
       then('tx is reverted with reason', async () => {
-        await expect(disableStealthJobsTx).to.be.revertedWith('SV: job not found');
+        await expect(disableStealthContractsTx).to.be.revertedWith('SV: contract not found');
       });
     });
     when('disabling one of many jobs', () => {
       let stealthJobAdded1: string;
       let stealthJobAdded2: string;
       let stealthJobAdded3: string;
-      let disableStealthJobTx: TransactionResponse;
+      let disableStealthContractTx: TransactionResponse;
       given(async () => {
         stealthJobAdded1 = await wallet.generateRandomAddress();
         stealthJobAdded2 = await wallet.generateRandomAddress();
         stealthJobAdded3 = await wallet.generateRandomAddress();
-        await stealthVault.addCallerJob(governor.address, stealthJobAdded1);
-        await stealthVault.addCallerJob(governor.address, stealthJobAdded2);
-        await stealthVault.addCallerJob(governor.address, stealthJobAdded3);
-        disableStealthJobTx = await stealthVault.disableStealthJobs([stealthJobAdded1, stealthJobAdded3]);
+        await stealthVault.addCallerContract(governor.address, stealthJobAdded1);
+        await stealthVault.addCallerContract(governor.address, stealthJobAdded2);
+        await stealthVault.addCallerContract(governor.address, stealthJobAdded3);
+        disableStealthContractTx = await stealthVault.disableStealthContracts([stealthJobAdded1, stealthJobAdded3]);
       });
       then('jobs gets removed from enabled jobs', async () => {
-        expect(await stealthVault.callerJobs(governor.address)).to.have.members([stealthJobAdded2]);
+        expect(await stealthVault.callerContracts(governor.address)).to.have.members([stealthJobAdded2]);
       });
     });
     when('disabling last enabled jobs', () => {
       let stealthJobAdded1: string;
       let stealthJobAdded2: string;
-      let disableStealthJobTx: TransactionResponse;
+      let disableStealthContractTx: TransactionResponse;
       given(async () => {
         stealthJobAdded1 = await wallet.generateRandomAddress();
         stealthJobAdded2 = await wallet.generateRandomAddress();
         await stealthVault.addCaller(governor.address);
-        await stealthVault.addCallerJob(governor.address, stealthJobAdded1);
-        await stealthVault.addCallerJob(governor.address, stealthJobAdded2);
-        disableStealthJobTx = await stealthVault.disableStealthJobs([stealthJobAdded1, stealthJobAdded2]);
+        await stealthVault.addCallerContract(governor.address, stealthJobAdded1);
+        await stealthVault.addCallerContract(governor.address, stealthJobAdded2);
+        disableStealthContractTx = await stealthVault.disableStealthContracts([stealthJobAdded1, stealthJobAdded2]);
       });
       then('job gets removed from enabled jobs', async () => {
-        expect(await stealthVault.callerJobs(governor.address)).to.be.empty;
+        expect(await stealthVault.callerContracts(governor.address)).to.be.empty;
       });
       then('caller gets removed from callers set', async () => {
         expect(await stealthVault.callers()).to.be.empty;

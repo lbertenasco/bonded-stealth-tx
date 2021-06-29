@@ -18,8 +18,8 @@ contract StealthVaultMock is StealthVault {
     canUnbondAt[_user] = _lastBond;
   }
 
-  function addCallerStealthJob(address _caller, address _job) external {
-    _callerStealthJobs[_caller].add(_job);
+  function addCallerStealthContract(address _caller, address _contract) external {
+    _callerStealthContracts[_caller].add(_contract);
   }
 
   function setHashReportedBy(bytes32 _hash, address _reportedBy) external {
@@ -30,8 +30,8 @@ contract StealthVaultMock is StealthVault {
     _callers.add(_caller);
   }
   
-  function addCallerJob(address _caller, address _job) external {
-    _callerStealthJobs[_caller].add(_job);
+  function addCallerContract(address _caller, address _contract) external {
+    _callerStealthContracts[_caller].add(_contract);
   }
 
   function penalize(
@@ -43,7 +43,7 @@ contract StealthVaultMock is StealthVault {
   } 
 }
 
-contract JobMock {
+contract StealthContractMock {
   address public stealthVault;
   constructor(address _stealthVault) {
     stealthVault = _stealthVault;
@@ -52,7 +52,7 @@ contract JobMock {
   function validateHash(
     bytes32 _hash,
     uint256 _penalty
-  ) external returns (bool) {
+  ) external returns (bool _valid) {
     return StealthVault(stealthVault).validateHash(msg.sender, _hash, _penalty);
   }
 }

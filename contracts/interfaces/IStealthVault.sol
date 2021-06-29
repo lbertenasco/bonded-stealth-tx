@@ -9,22 +9,24 @@ interface IStealthVault {
   event PenaltyApplied(bytes32 _hash, address _caller, uint256 _penalty, address _reportedBy);
   event ValidatedHash(bytes32 _hash, address _caller, uint256 _penalty);
 
-  event StealthJobEnabled(address indexed _caller, address _job);
+  event StealthContractEnabled(address indexed _caller, address _contract);
 
-  event StealthJobsEnabled(address indexed _caller, address[] _jobs);
+  event StealthContractsEnabled(address indexed _caller, address[] _contracts);
 
-  event StealthJobDisabled(address indexed _caller, address _job);
+  event StealthContractDisabled(address indexed _caller, address _contract);
 
-  event StealthJobsDisabled(address indexed _caller, address[] _jobs);
+  event StealthContractsDisabled(address indexed _caller, address[] _contracts);
 
   function isStealthVault() external pure returns (bool);
 
   // getters
   function callers() external view returns (address[] memory _callers);
 
-  function callerJobs(address _caller) external view returns (address[] memory _jobs);
+  function callerContracts(address _caller) external view returns (address[] memory _contracts);
 
   // global bond
+  function gasBuffer() external view returns (uint256 _gasBuffer);
+
   function totalBonded() external view returns (uint256 _totalBonded);
 
   function bonded(address _caller) external view returns (uint256 _bond);
@@ -34,16 +36,17 @@ interface IStealthVault {
   // global caller
   function caller(address _caller) external view returns (bool _enabled);
 
-  function callerStealthJob(address _caller, address _job) external view returns (bool _enabled);
+  function callerStealthContract(address _caller, address _contract) external view returns (bool _enabled);
 
   // global hash
   function hashReportedBy(bytes32 _hash) external view returns (address _reportedBy);
 
   // governor
-  function transferGovernorBond(
-    address _caller,
-    uint256 _amount /*onlyGovernor*/
-  ) external;
+  function setGasBuffer(uint256 _gasBuffer) external;
+
+  function transferGovernorBond(address _caller, uint256 _amount) external;
+
+  function transferBondToGovernor(address _caller, uint256 _amount) external;
 
   // caller
   function bond() external payable;
@@ -56,15 +59,15 @@ interface IStealthVault {
 
   function unbond(uint256 _amount) external;
 
-  function enableStealthJob(address _job) external;
+  function enableStealthContract(address _contract) external;
 
-  function enableStealthJobs(address[] calldata _jobs) external;
+  function enableStealthContracts(address[] calldata _contracts) external;
 
-  function disableStealthJob(address _job) external;
+  function disableStealthContract(address _contract) external;
 
-  function disableStealthJobs(address[] calldata _jobs) external;
+  function disableStealthContracts(address[] calldata _contracts) external;
 
-  // job
+  // stealth-contract
   function validateHash(
     address _caller,
     bytes32 _hash,

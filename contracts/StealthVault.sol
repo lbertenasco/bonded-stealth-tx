@@ -15,11 +15,12 @@ import './interfaces/IStealthVault.sol';
 contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthVault {
   using EnumerableSet for EnumerableSet.AddressSet;
 
+  uint256 public override gasBuffer = 69_420; // why not
   uint256 public override totalBonded;
   mapping(address => uint256) public override bonded;
   mapping(address => uint256) public override canUnbondAt;
 
-  mapping(address => EnumerableSet.AddressSet) internal _callerStealthJobs;
+  mapping(address => EnumerableSet.AddressSet) internal _callerStealthContracts;
   mapping(bytes32 => address) public override hashReportedBy;
 
   EnumerableSet.AddressSet internal _callers;
@@ -39,10 +40,10 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     }
   }
 
-  function callerJobs(address _caller) external view override returns (address[] memory _callerJobsList) {
-    _callerJobsList = new address[](_callerStealthJobs[_caller].length());
-    for (uint256 i; i < _callerStealthJobs[_caller].length(); i++) {
-      _callerJobsList[i] = _callerStealthJobs[_caller].at(i);
+  function callerContracts(address _caller) external view override returns (address[] memory _callerContractsList) {
+    _callerContractsList = new address[](_callerStealthContracts[_caller].length());
+    for (uint256 i; i < _callerStealthContracts[_caller].length(); i++) {
+      _callerContractsList[i] = _callerStealthContracts[_caller].at(i);
     }
   }
 
@@ -50,8 +51,8 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     return _callers.contains(_caller);
   }
 
-  function callerStealthJob(address _caller, address _job) external view override returns (bool _enabled) {
-    return _callerStealthJobs[_caller].contains(_job);
+  function callerStealthContract(address _caller, address _contract) external view override returns (bool _enabled) {
+    return _callerStealthContracts[_caller].contains(_contract);
   }
 
   function bond() external payable override nonReentrant() {
@@ -98,16 +99,22 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     bonded[governor] = bonded[governor] + (_penalty - _amountReward);
   }
 
+  modifier OnlyOneCallStack() {
+    uint256 _gasLeftPlusBuffer = gasleft() + gasBuffer;
+    require(_gasLeftPlusBuffer >= (block.gaslimit * 63) / 64, 'SV: eoa gas check failed');
+    _;
+  }
+
   // Hash
   function validateHash(
     address _caller,
     bytes32 _hash,
     uint256 _penalty
-  ) external override nonReentrant() returns (bool) {
+  ) external virtual override OnlyOneCallStack() nonReentrant() returns (bool _valid) {
     // Caller is required to be an EOA to avoid on-chain hash generation to bypass penalty.
     // solhint-disable-next-line avoid-tx-origin
     require(_caller == tx.origin, 'SV: not eoa');
-    require(_callerStealthJobs[_caller].contains(msg.sender), 'SV: job not enabled');
+    require(_callerStealthContracts[_caller].contains(msg.sender), 'SV: contract not enabled');
     require(bonded[_caller] >= _penalty, 'SV: not enough bonded');
     require(canUnbondAt[_caller] == 0, 'SV: unbonding');
 
@@ -122,7 +129,7 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
       return false;
     }
     emit ValidatedHash(_hash, _caller, _penalty);
-    // valid: has was not reported
+    // valid: hash was not reported
     return true;
   }
 
@@ -141,45 +148,55 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     emit ReportedHash(_hash, msg.sender);
   }
 
-  // Caller Jobs
-  function enableStealthJob(address _job) external override nonReentrant() {
-    _addCallerJob(_job);
-    emit StealthJobEnabled(msg.sender, _job);
+  // Caller Contracts
+  function enableStealthContract(address _contract) external override nonReentrant() {
+    _addCallerContract(_contract);
+    emit StealthContractEnabled(msg.sender, _contract);
   }
 
-  function enableStealthJobs(address[] calldata _jobs) external override nonReentrant() {
-    for (uint256 i = 0; i < _jobs.length; i++) {
-      _addCallerJob(_jobs[i]);
+  function enableStealthContracts(address[] calldata _contracts) external override nonReentrant() {
+    for (uint256 i = 0; i < _contracts.length; i++) {
+      _addCallerContract(_contracts[i]);
     }
-    emit StealthJobsEnabled(msg.sender, _jobs);
+    emit StealthContractsEnabled(msg.sender, _contracts);
   }
 
-  function disableStealthJob(address _job) external override nonReentrant() {
-    _removeCallerJob(_job);
-    emit StealthJobDisabled(msg.sender, _job);
+  function disableStealthContract(address _contract) external override nonReentrant() {
+    _removeCallerContract(_contract);
+    emit StealthContractDisabled(msg.sender, _contract);
   }
 
-  function disableStealthJobs(address[] calldata _jobs) external override nonReentrant() {
-    for (uint256 i = 0; i < _jobs.length; i++) {
-      _removeCallerJob(_jobs[i]);
+  function disableStealthContracts(address[] calldata _contracts) external override nonReentrant() {
+    for (uint256 i = 0; i < _contracts.length; i++) {
+      _removeCallerContract(_contracts[i]);
     }
-    emit StealthJobsDisabled(msg.sender, _jobs);
+    emit StealthContractsDisabled(msg.sender, _contracts);
   }
 
-  function _addCallerJob(address _job) internal {
+  function _addCallerContract(address _contract) internal {
     if (!_callers.contains(msg.sender)) _callers.add(msg.sender);
-    require(_callerStealthJobs[msg.sender].add(_job), 'SV: job already added');
+    require(_callerStealthContracts[msg.sender].add(_contract), 'SV: contract already added');
   }
 
-  function _removeCallerJob(address _job) internal {
-    require(_callerStealthJobs[msg.sender].remove(_job), 'SV: job not found');
-    if (_callerStealthJobs[msg.sender].length() == 0) _callers.remove(msg.sender);
+  function _removeCallerContract(address _contract) internal {
+    require(_callerStealthContracts[msg.sender].remove(_contract), 'SV: contract not found');
+    if (_callerStealthContracts[msg.sender].length() == 0) _callers.remove(msg.sender);
   }
 
   // Governable: restricted-access
+  function setGasBuffer(uint256 _gasBuffer) external virtual override onlyGovernor {
+    require(_gasBuffer < (block.gaslimit * 63) / 64, 'SV: gasBuffer too high');
+    gasBuffer = _gasBuffer;
+  }
+
   function transferGovernorBond(address _caller, uint256 _amount) external override onlyGovernor {
     bonded[governor] = bonded[governor] - _amount;
     bonded[_caller] = bonded[_caller] + _amount;
+  }
+
+  function transferBondToGovernor(address _caller, uint256 _amount) external override onlyGovernor {
+    bonded[_caller] = bonded[_caller] - _amount;
+    bonded[governor] = bonded[governor] + _amount;
   }
 
   function setPendingGovernor(address _pendingGovernor) external override onlyGovernor {

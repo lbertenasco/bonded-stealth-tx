@@ -31,6 +31,11 @@ module.exports = {
           accounts: [process.env.KOVAN_PRIVATE_KEY, '0x8901af9255b653e9a8f654d84b53d37b9134eb5e949f394c8ddb0c2ef4481287'],
           gasPrice: 'auto',
         },
+        goerli: {
+          url: process.env.GOERLI_HTTPS_URL,
+          accounts: [process.env.GOERLI_PRIVATE_KEY],
+          gasPrice: 'auto',
+        },
         mainnet: {
           url: process.env.MAINNET_HTTPS_URL,
           accounts: [process.env.MAINNET_PRIVATE_KEY],

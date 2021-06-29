@@ -2,7 +2,8 @@ import { Contract, ContractFactory } from '@ethersproject/contracts';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
-import { utils } from 'ethers';
+import { utils, BigNumber } from 'ethers';
+let blockGasLimit: BigNumber;
 
 describe('e2e: StealthVault', () => {
   let owner: SignerWithAddress, alice: SignerWithAddress, bob: SignerWithAddress;
@@ -21,6 +22,8 @@ describe('e2e: StealthVault', () => {
     stealthVaultFactory = await ethers.getContractFactory('StealthVault');
     stealthRelayerFactory = await ethers.getContractFactory('StealthRelayer');
     stealthERC20Factory = await ethers.getContractFactory('StealthERC20');
+    const pendingBlock = await ethers.provider.send('eth_getBlockByNumber', ['latest', false]);
+    blockGasLimit = BigNumber.from(pendingBlock.gasLimit);
   });
 
   beforeEach('StealthVault', async () => {
@@ -47,13 +50,13 @@ describe('e2e: StealthVault', () => {
     expect(bonded).to.eq(amount);
     expect(totalBonded).to.eq(amount);
 
-    // alice adds stealthRelayer as a valid job she'll perform stealth txs on
-    await stealthVault.connect(alice).enableStealthJob(stealthRelayer.address);
+    // alice adds stealthRelayer as a valid contract she'll perform stealth txs on
+    await stealthVault.connect(alice).enableStealthContract(stealthRelayer.address);
     const callers = await stealthVault.callers();
-    const aliceJobs = await stealthVault.callerJobs(alice.address);
+    const aliceContracts = await stealthVault.callerContracts(alice.address);
 
     expect(callers).to.be.deep.eq([alice.address]);
-    expect(aliceJobs).to.be.deep.eq([stealthRelayer.address]);
+    expect(aliceContracts).to.be.deep.eq([stealthRelayer.address]);
 
     // call stealthERC20 through stealth relayer
     const mintAmount = utils.parseEther('100');
@@ -67,7 +70,8 @@ describe('e2e: StealthVault', () => {
       stealthERC20.address, // address _job,
       callData, // bytes memory _callData,
       stealthHash, // bytes32 _stealthHash,
-      blockNumber + 1 // uint256 _blockNumber
+      blockNumber + 1, // uint256 _blockNumber
+      { gasLimit: blockGasLimit }
     );
 
     const aliceStealthERC20Balance = await stealthERC20.balanceOf(alice.address);
@@ -78,7 +82,8 @@ describe('e2e: StealthVault', () => {
         stealthERC20.address, // address _job,
         callData, // bytes memory _callData,
         stealthHash, // bytes32 _stealthHash,
-        blockNumber + 1 // uint256 _blockNumber
+        blockNumber + 1, // uint256 _blockNumber
+        { gasLimit: blockGasLimit }
       )
     ).to.be.revertedWith('ST: wrong block');
 
@@ -92,7 +97,8 @@ describe('e2e: StealthVault', () => {
       stealthERC20.address, // address _job,
       callData, // bytes memory _callData,
       stealthHash, // bytes32 _stealthHash,
-      blockNumber + 1 // uint256 _blockNumber
+      blockNumber + 1, // uint256 _blockNumber
+      { gasLimit: blockGasLimit }
     );
 
     // balance should not change

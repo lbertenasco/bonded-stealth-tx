@@ -21,7 +21,7 @@ async function execute() {
   const stealthRelayer = await ethers.getContractAt('contracts/StealthRelayer.sol:StealthRelayer', '0x4A7a3b790D0aD2b9e1e65f9a3cf31e99455D4E1c');
   const stealthERC20 = await ethers.getContractAt('contracts/mock/StealthERC20.sol:StealthERC20', '0xf244E372A492e415599452b4eA139338f3f24a0b');
   // await stealthRelayer.setPenalty(utils.parseEther('0.001'));
-  // await stealthVault.addStealthJob(stealthRelayer.address);
+  // await stealthVault.addStealthContract(stealthRelayer.address);
   const rawTx = await stealthERC20.populateTransaction.stealthMint(deployer.address, utils.parseEther('666'));
   const hash = utils.formatBytes32String(generateRandomNumber(1, 1000000));
   console.log('hash', hash);
