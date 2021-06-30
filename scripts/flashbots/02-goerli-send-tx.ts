@@ -29,13 +29,13 @@ function mainExecute(): Promise<void | Error> {
     const stealthRelayer = await ethers.getContractAt('StealthRelayer', contracts.stealthRelayer.goerli);
     const stealthERC20 = await ethers.getContractAt('StealthERC20', contracts.stealthERC20.goerli);
     console.log('creating signer');
-    const signer = new ethers.Wallet(('0x' + process.env.GOERLI_PRIVATE_KEY) as string).connect(provider) as Signer;
+    const signer = new ethers.Wallet(('0x' + process.env.GOERLI_PRIVATE_KEY) as string).connect(provider);
 
     // `authSigner` is an Ethereum private key that does NOT store funds and is NOT your bot's primary key.
     // This is an identifying key for signing payloads to establish reputation and whitelisting
     // In production, this should be used across multiple bundles to build relationship. In this example, we generate a new wallet each time
     console.log('creating flashbotSigner');
-    const flashbotSigner = new ethers.Wallet(('0x' + process.env.FLASHBOTS_PRIVATE_KEY) as string).connect(provider) as Signer;
+    const flashbotSigner = new ethers.Wallet(('0x' + process.env.FLASHBOTS_PRIVATE_KEY) as string).connect(provider);
 
     // Flashbots provider requires passing in a standard provider
     console.log('creating flashbotsProvider');
@@ -53,7 +53,7 @@ function mainExecute(): Promise<void | Error> {
     const stealthHash = ethers.utils.solidityKeccak256(['string'], ['random-secret-hash']);
     let blockNumber = await ethers.provider.getBlockNumber();
 
-    // TODO get this dynamically though estimated gas used + average fast gas price (check simulation)
+    // NOTE: get this dynamically though estimated gas used + average fast gas price (check simulation)
     const coinbasePayment = utils.parseEther('1').div(100);
 
     const pendingBlock = await ethers.provider.send('eth_getBlockByNumber', ['latest', false]);
@@ -106,7 +106,7 @@ function mainExecute(): Promise<void | Error> {
     }
     console.log(simulation);
 
-    // TODO possible rebalance payment using (results[0].gasPrice * gasUsed)* 1.1? 10% bonus is enough?
+    // NOTE: here you can rebalance payment using (results[0].gasPrice * gasUsed) + a % as miner bonus
 
     // send bundle
     const flashbotsTransactionResponse: FlashbotsTransaction = await flashbotsProvider.sendBundle(bundle, blockNumber + 1);
