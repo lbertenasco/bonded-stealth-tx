@@ -24,7 +24,9 @@ function mainExecute(): Promise<void | Error> {
     const [owner] = await ethers.getSigners();
     console.log('using address:', owner.address);
 
-    const provider = ethers.providers.getDefaultProvider('goerli');
+    const network = await ethers.provider.getNetwork();
+    if (network.chainId != 5) return reject('not on goerly network. please use --network goerli');
+    const provider = ethers.provider;
 
     const stealthRelayer = await ethers.getContractAt('StealthRelayer', contracts.stealthRelayer.goerli);
     const stealthERC20 = await ethers.getContractAt('StealthERC20', contracts.stealthERC20.goerli);
@@ -97,10 +99,10 @@ function mainExecute(): Promise<void | Error> {
       } else {
         console.log(error);
       }
-      return;
+      return reject('simulation error');
     }
     if ('error' in simulation) {
-      console.log(`Simulation Error: ${simulation.error.message}`);
+      return reject(`Simulation Error: ${simulation.error.message}`);
     } else {
       console.log(`Simulation Success: ${JSON.stringify(simulation, null, 2)}`);
     }
@@ -114,14 +116,15 @@ function mainExecute(): Promise<void | Error> {
     const resolution = await (flashbotsTransactionResponse as FlashbotsTransactionResponse).wait();
 
     if (resolution == FlashbotsBundleResolution.BundleIncluded) {
-      return console.log('BundleIncluded, sucess!');
+      console.log('BundleIncluded, sucess!');
+      return resolve();
     }
     if (resolution == FlashbotsBundleResolution.BlockPassedWithoutInclusion) {
       console.log('BlockPassedWithoutInclusion, re-build and re-send bundle...');
       return await mainExecute();
     }
     if (resolution == FlashbotsBundleResolution.AccountNonceTooHigh) {
-      return console.log('AccountNonceTooHigh, adjust nonce');
+      return reject('AccountNonceTooHigh, adjust nonce');
     }
   });
 }
