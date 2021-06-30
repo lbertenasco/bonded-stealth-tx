@@ -10,7 +10,7 @@ import {
 import * as contracts from '../../utils/contracts';
 
 const { Confirm } = require('enquirer');
-const prompt = new Confirm('Do you wish to stealth-mint though flashbots on goerli?');
+const prompt = new Confirm({ message: 'Do you wish to stealth-mint though flashbots on goerli?' });
 
 async function main() {
   await run('compile');

@@ -3,7 +3,7 @@ import { run, ethers, network } from 'hardhat';
 import * as contracts from '../../utils/contracts';
 
 const { Confirm } = require('enquirer');
-const prompt = new Confirm('Do you wish to deploy StealthRelayer contract?');
+const prompt = new Confirm({ message: 'Do you wish to deploy StealthRelayer contract?' });
 
 async function main() {
   await run('compile');
@@ -19,7 +19,7 @@ function promptAndSubmit(): Promise<void | Error> {
       if (answer) {
         try {
           const stealthRelayerFactory: ContractFactory = await ethers.getContractFactory('StealthRelayer');
-          const stealthRelayer: Contract = await stealthRelayerFactory.deploy(contracts.stealthVault);
+          const stealthRelayer: Contract = await stealthRelayerFactory.deploy(contracts.stealthVault.mainnet);
           console.log('stealthRelayer address:', stealthRelayer.address);
 
           console.log('PLEASE add to utils/contracts.ts');
