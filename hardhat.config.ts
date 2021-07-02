@@ -39,7 +39,7 @@ module.exports = {
         mainnet: {
           url: process.env.MAINNET_HTTPS_URL,
           accounts: [process.env.MAINNET_PRIVATE_KEY],
-          gasPrice: 'auto',
+          gasPrice: 18000000000, // 18 gwei
         },
       },
   solidity: {

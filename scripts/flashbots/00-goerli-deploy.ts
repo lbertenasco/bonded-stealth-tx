@@ -2,7 +2,7 @@ import { Contract, ContractFactory } from 'ethers';
 import { run, ethers, network } from 'hardhat';
 
 const { Confirm } = require('enquirer');
-const prompt = new Confirm('Do you wish to deploy Stealth contracts on goerli?');
+const prompt = new Confirm({ message: 'Do you wish to deploy Stealth contracts on goerli?' });
 
 async function main() {
   await run('compile');

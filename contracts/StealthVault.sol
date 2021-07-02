@@ -4,6 +4,7 @@ pragma solidity 0.8.4;
 
 import '@lbertenasco/contract-utils/contracts/utils/CollectableDust.sol';
 import '@lbertenasco/contract-utils/contracts/utils/Governable.sol';
+import '@lbertenasco/contract-utils/contracts/utils/Manageable.sol';
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 
@@ -12,7 +13,7 @@ import './interfaces/IStealthVault.sol';
 /*
  * StealthVault
  */
-contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthVault {
+contract StealthVault is Governable, Manageable, CollectableDust, ReentrancyGuard, IStealthVault {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   uint256 public override gasBuffer = 69_420; // why not
@@ -25,9 +26,7 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
 
   EnumerableSet.AddressSet internal _callers;
 
-  constructor() Governable(msg.sender) {
-    _addProtocolToken(ETH_ADDRESS);
-  }
+  constructor() Governable(msg.sender) Manageable(msg.sender) {}
 
   function isStealthVault() external pure override returns (bool) {
     return true;
@@ -183,12 +182,13 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     if (_callerStealthContracts[msg.sender].length() == 0) _callers.remove(msg.sender);
   }
 
-  // Governable: restricted-access
-  function setGasBuffer(uint256 _gasBuffer) external virtual override onlyGovernor {
+  // Manageable: restricted-access
+  function setGasBuffer(uint256 _gasBuffer) external virtual override onlyManager {
     require(_gasBuffer < (block.gaslimit * 63) / 64, 'SV: gasBuffer too high');
     gasBuffer = _gasBuffer;
   }
 
+  // Governable: restricted-access
   function transferGovernorBond(address _caller, uint256 _amount) external override onlyGovernor {
     bonded[governor] = bonded[governor] - _amount;
     bonded[_caller] = bonded[_caller] + _amount;
@@ -199,6 +199,16 @@ contract StealthVault is Governable, CollectableDust, ReentrancyGuard, IStealthV
     bonded[governor] = bonded[governor] + _amount;
   }
 
+  // Manageable: setters
+  function setPendingManager(address _pendingManager) external override onlyGovernor {
+    _setPendingManager(_pendingManager);
+  }
+
+  function acceptManager() external override onlyPendingManager {
+    _acceptManager();
+  }
+
+  // Governable: setters
   function setPendingGovernor(address _pendingGovernor) external override onlyGovernor {
     _setPendingGovernor(_pendingGovernor);
   }
