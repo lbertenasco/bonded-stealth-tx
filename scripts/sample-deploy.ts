@@ -9,9 +9,9 @@ async function main() {
   const stealthERC20Factory = await ethers.getContractFactory('contracts/mock/StealthERC20.sol:StealthERC20');
   const stealthVault = await stealthVaultFactory.deploy();
   console.log('Deployed stealth vault', stealthVault.address);
-  await stealthVault.bond({ value: utils.parseEther('0.1') });
+  await stealthVault.bond({ value: utils.parseEther('1') });
   console.log('Added 0.1 bond');
-  const stealthRelayer = await stealthRelayerFactory.deploy(deployer.address, stealthVault.address);
+  const stealthRelayer = await stealthRelayerFactory.deploy(stealthVault.address);
   console.log('Deployed stealth relayer', stealthRelayer.address);
   await stealthVault.enableStealthContract(stealthRelayer.address);
   console.log('Enabled stealth relayer as a stealth contract for caller in stealth vault');

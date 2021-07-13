@@ -1,17 +1,71 @@
 import { Transaction as Web3Transaction } from 'web3-core';
-import { ethers } from 'hardhat';
+import { ethers, hardhatArguments } from 'hardhat';
 import _ from 'lodash';
 import { BigNumber, Contract, utils, Transaction as EthersTransaction } from 'ethers';
-import { createAlchemyWeb3 } from '@alch/alchemy-web3';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import * as contracts from '../../utils/contracts';
+import Web3 from 'web3';
+import WebSocket from 'ws';
 
-// Using WebSockets
-const web3 = createAlchemyWeb3('wss://eth-kovan.ws.alchemyapi.io/v2/OAh_8Jbu8aMsuFAj1n8gRzo8PPRfK7VP');
+const web3 = new Web3('ws://127.0.0.1:8546');
+const gasnowWebSocketUrl = 'wss://www.gasnow.org/ws';
+const gasnowWebSocket = new WebSocket(gasnowWebSocketUrl);
 
-const stealthVaultAddress = '0x12F86457C6aa1d0e63aef72b4E2ae391A7EeB14D';
-const stealthRelayerAddress = '0x4A7a3b790D0aD2b9e1e65f9a3cf31e99455D4E1c';
+const MAX_GAS_PRICE = utils.parseUnits('350', 'gwei');
+
+const stealthVaultAddress = contracts.stealthVault[hardhatArguments.network! as contracts.DeployedNetwork];
+
+const stealthRelayerAddress = contracts.stealthRelayer[hardhatArguments.network! as contracts.DeployedNetwork];
+
+export const chainIds = {
+  mainnet: 1,
+  goerli: 5,
+  ropsten: 3,
+  rinkeby: 4,
+};
+const chainId = chainIds[hardhatArguments.network! as contracts.DeployedNetwork];
+
+export const reporterPrivateKeys = {
+  mainnet: process.env.MAINNET_PRIVATE_KEY,
+  goerli: process.env.GOERLY_2_PRIVATE_KEY,
+  ropsten: process.env.ROPSTEN_2_PRIVATE_KEY,
+  rinkeby: process.env.RINKEBY_2_PRIVATE_KEY,
+};
+const reporterPrivateKey = reporterPrivateKeys[hardhatArguments.network! as contracts.DeployedNetwork];
+
+let rapidGasPrice: number;
+type GasNow = {
+  gasPrices: {
+    rapid: number;
+    fast: number;
+    standerd: number;
+    slow: number;
+  };
+};
+const updatePageGasPriceData = (data: GasNow) => {
+  if (data && data.gasPrices) {
+    rapidGasPrice = data.gasPrices['rapid'];
+    console.log('Updated rapid gas price to', utils.formatUnits(rapidGasPrice, 'gwei'));
+  }
+};
+
+gasnowWebSocket.onopen = () => {
+  console.log('Gasnow connection open ...');
+};
+gasnowWebSocket.onmessage = (evt: WebSocket.MessageEvent) => {
+  const data = JSON.parse(evt.data as string);
+  if (data.type) {
+    updatePageGasPriceData(data.data);
+  }
+};
+
+gasnowWebSocket.onclose = () => {
+  console.log('Gasnow connection closed.');
+  process.exit(1);
+};
+
 let nonce: number;
-let reporter: SignerWithAddress;
+let reporterSigner: SignerWithAddress;
 let stealthVault: Contract;
 let stealthRelayer: Contract;
 let callers: string[];
@@ -24,18 +78,19 @@ const generateRandomNumber = (min: number, max: number): string => {
   return `${Math.floor(Math.random() * (max - min) + min)}`;
 };
 
-async function main() {
-  return new Promise(async () => {
-    console.log('Starting ...');
+async function main(): Promise<void> {
+  return new Promise(async (resolve) => {
+    console.log(`Starting on network ${hardhatArguments.network!}(${chainId}) ...`);
     console.log('Getting reporter ...');
-    [, reporter] = await ethers.getSigners();
-    nonce = await reporter.getTransactionCount();
-    stealthVault = await ethers.getContractAt('contracts/StealthVault.sol:StealthVault', stealthVaultAddress, reporter);
-    stealthRelayer = await ethers.getContractAt('contracts/StealthRelayer.sol:StealthRelayer', stealthRelayerAddress, reporter);
+    [reporterSigner] = await ethers.getSigners();
+    nonce = await reporterSigner.getTransactionCount();
+    stealthVault = await ethers.getContractAt('contracts/StealthVault.sol:StealthVault', stealthVaultAddress, reporterSigner);
+    stealthRelayer = await ethers.getContractAt('contracts/StealthRelayer.sol:StealthRelayer', stealthRelayerAddress, reporterSigner);
     console.log('Getting penalty ...');
     stealthRelayerPenalty = await stealthRelayer.penalty();
+    console.log('Penalty set to', utils.formatEther(stealthRelayerPenalty));
     console.log('Getting callers ...');
-    callers = (await stealthVault.callers()).map((caller: string) => caller.toLowerCase());
+    callers = (await stealthVault.callers()).map((caller: string) => normalizeAddress(caller));
     console.log('Getting callers jobs ...');
     for (let i = 0; i < callers.length; i++) {
       addCallerStealthContracts(callers[i], await stealthVault.callerContracts(callers[i]));
@@ -43,8 +98,15 @@ async function main() {
       addBond(callers[i], await stealthVault.bonded(callers[i]));
     }
     console.log('Hooking up to mempool ...');
-    web3.eth.subscribe('alchemy_filteredFullPendingTransactions', { address: stealthRelayerAddress }, (err: Error, tx: Web3Transaction) => {
-      checkTx(web3TransactionToEthers(tx));
+    web3.eth.subscribe('pendingTransactions', async (error: Error, transactionHash: string) => {
+      let tx;
+      try {
+        // For some reason web3 is failing sometimes to parse the transaction
+        tx = await web3.eth.getTransaction(transactionHash);
+      } catch (err) {}
+      if (tx && tx.to && normalizeAddress(tx.to) === normalizeAddress(stealthRelayerAddress)) {
+        checkTx(web3TransactionToEthers(tx));
+      }
     });
     console.log('Hooking up to events ...');
     stealthRelayer.on('PenaltySet', (penalty: BigNumber) => {
@@ -63,10 +125,10 @@ async function main() {
     stealthVault.on('StealthContractsDisabled', (caller: string, jobs: string[]) => {
       removeCallerStealthContracts(caller, jobs);
     });
-    stealthVault.on('Bonded', (caller: string, bonded: BigNumber) => {
+    stealthVault.on('Bonded', (caller: string, bonded: BigNumber, _: BigNumber) => {
       addBond(caller, bonded);
     });
-    stealthVault.on('Unbonded', (caller: string, unbonded: BigNumber) => {
+    stealthVault.on('Unbonded', (caller: string, unbonded: BigNumber, _: BigNumber) => {
       reduceBond(caller, unbonded);
     });
     stealthVault.on('PenaltyApplied', (hash: string, caller: string, penalty: BigNumber, reporter: string) => {
@@ -78,11 +140,11 @@ async function main() {
 
 function web3TransactionToEthers(tx: Web3Transaction): EthersTransaction {
   return {
-    chainId: 42,
+    chainId,
     hash: tx.hash,
     nonce: tx.nonce,
-    from: tx.from,
-    to: tx.to!,
+    from: normalizeAddress(tx.from),
+    to: normalizeAddress(tx.to!),
     gasLimit: BigNumber.from(tx.gas),
     gasPrice: BigNumber.from(tx.gasPrice),
     data: tx.input,
@@ -91,6 +153,7 @@ function web3TransactionToEthers(tx: Web3Transaction): EthersTransaction {
 }
 
 async function checkTx(tx: EthersTransaction) {
+  console.log(tx);
   const rand = generateRandomNumber(1, 1000000000);
   console.time(`Validate caller jobs ${rand}-${tx.hash!}`);
   if (!validCallerJobs(tx.from!, stealthRelayerAddress)) return;
@@ -104,21 +167,25 @@ async function checkTx(tx: EthersTransaction) {
   console.time(`Validate hash ${rand}-${tx.hash!}`);
   if (!isValidatingHash(parsedTx.name)) return;
   console.timeEnd(`Validate hash ${rand}-${tx.hash!}`);
-  await reportHash(parsedTx.args._stealthHash, tx.gasPrice);
+  await reportHash(parsedTx.args._stealthHash, tx.gasPrice!);
 }
 
-async function reportHash(hash: string, gasPrice: BigNumber): Promise<void> {
+async function reportHash(hash: string, validatingGasPrice: BigNumber): Promise<void> {
   console.log('reporting hash', hash);
   nonce++;
-  const populatedTx = await stealthVault.populateTransaction.reportHash(hash, { gasLimit: 1000000, gasPrice: gasPrice.mul(3), nonce });
+  let rushGasPrice = validatingGasPrice.gt(rapidGasPrice)
+    ? validatingGasPrice.add(validatingGasPrice.div(3))
+    : BigNumber.from(`${rapidGasPrice}`);
+  rushGasPrice = rushGasPrice.gt(MAX_GAS_PRICE) ? MAX_GAS_PRICE : rushGasPrice;
+  const populatedTx = await stealthVault.populateTransaction.reportHash(hash, { gasLimit: 1000000, gasPrice: rushGasPrice, nonce });
   const signedtx = await web3.eth.accounts.signTransaction(
     {
       to: stealthVaultAddress,
-      gasPrice: `${gasPrice.mul(3).toString()}`,
+      gasPrice: `${rushGasPrice.toString()}`,
       gas: '100000',
       data: populatedTx.data!,
     },
-    process.env.KOVAN_2_PRIVATE_KEY as string
+    reporterPrivateKey as string
   );
   await web3.eth.sendSignedTransaction(signedtx.rawTransaction!, (error: Error, hash: string) => {
     console.log('sent report with tx hash', hash);
