@@ -25,11 +25,15 @@ module.exports = {
         },
         localMainnet: {
           url: process.env.LOCAL_MAINNET_HTTPS_URL,
-          // accounts: [process.env.LOCAL_MAINNET_PRIVATE_KEY],
         },
         rinkeby: {
           url: process.env.RINKEBY_HTTPS_URL,
           accounts: [process.env.RINKEBY_PRIVATE_KEY, process.env.RINKEBY_2_PRIVATE_KEY],
+          gasPrice: 'auto',
+        },
+        goerli: {
+          url: process.env.GOERLI_HTTPS_URL,
+          accounts: [process.env.GOERLI_PRIVATE_KEY, process.env.GOERLI_2_PRIVATE_KEY],
           gasPrice: 'auto',
         },
         ropsten: {

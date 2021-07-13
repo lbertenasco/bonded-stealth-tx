@@ -3,31 +3,19 @@ import { ethers, hardhatArguments } from 'hardhat';
 import _ from 'lodash';
 import { BigNumber, Contract, utils, Transaction as EthersTransaction } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import * as contracts from '../../utils/contracts';
 import Web3 from 'web3';
 import WebSocket from 'ws';
 
 const web3 = new Web3('ws://127.0.0.1:8546');
-// const web3 = new Web3('wss://eth-rinkeby.ws.alchemyapi.io/v2/nS8CFVW0Srf7kOWvYG_fcPm18CXh66Kz');
 const gasnowWebSocketUrl = 'wss://www.gasnow.org/ws';
 const gasnowWebSocket = new WebSocket(gasnowWebSocketUrl);
 
-const MAX_GAS_PRICE = utils.parseUnits('500', 'gwei');
+const MAX_GAS_PRICE = utils.parseUnits('350', 'gwei');
 
-export const stealthVaultAddresses = {
-  mainnet: '0xC454F4E1DDB39c8De9663287D52b0E4Feb4cA45E',
-  goerli: '0x093a60a183245b9ce41fBe5Bd0ef6b1A0AA52A65',
-  rinkeby: '0x5A4ECb9fA73A241F5fE2F61F72574E3Ecc4Fc720',
-  ropsten: '0x5ce667c15ec23cD40262169Bf8e75cc97D23e03d',
-};
-const stealthVaultAddress = stealthVaultAddresses[hardhatArguments.network! as 'mainnet' | 'goerli' | 'ropsten' | 'rinkeby'];
+const stealthVaultAddress = contracts.stealthVault[hardhatArguments.network! as contracts.DeployedNetwork];
 
-export const stealthRelayerAddresses = {
-  mainnet: '0x0a61c2146A7800bdC278833F21EBf56Cd660EE2a',
-  goerli: '0x6ABEF8eF9dF993c5a8f32484E0ae248281227C83',
-  rinkeby: '0x03900f1cdEf9355a121D84DeaC414799dB51Dc05',
-  ropsten: '0x635E0E1307b2446aC337622c7D3A7C62CaEe8E24',
-};
-const stealthRelayerAddress = stealthRelayerAddresses[hardhatArguments.network! as 'mainnet' | 'goerli' | 'ropsten' | 'rinkeby'];
+const stealthRelayerAddress = contracts.stealthRelayer[hardhatArguments.network! as contracts.DeployedNetwork];
 
 export const chainIds = {
   mainnet: 1,
@@ -35,7 +23,7 @@ export const chainIds = {
   ropsten: 3,
   rinkeby: 4,
 };
-const chainId = chainIds[hardhatArguments.network! as 'mainnet' | 'goerli' | 'ropsten' | 'rinkeby'];
+const chainId = chainIds[hardhatArguments.network! as contracts.DeployedNetwork];
 
 export const reporterPrivateKeys = {
   mainnet: process.env.MAINNET_PRIVATE_KEY,
@@ -43,7 +31,7 @@ export const reporterPrivateKeys = {
   ropsten: process.env.ROPSTEN_2_PRIVATE_KEY,
   rinkeby: process.env.RINKEBY_2_PRIVATE_KEY,
 };
-const reporterPrivateKey = reporterPrivateKeys[hardhatArguments.network! as 'mainnet' | 'goerli' | 'ropsten' | 'rinkeby'];
+const reporterPrivateKey = reporterPrivateKeys[hardhatArguments.network! as contracts.DeployedNetwork];
 
 let rapidGasPrice: number;
 type GasNow = {
