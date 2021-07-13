@@ -6,6 +6,7 @@ import '@nomiclabs/hardhat-etherscan';
 import { removeConsoleLog } from 'hardhat-preprocessor';
 import 'hardhat-gas-reporter';
 import 'solidity-coverage';
+import { utils } from 'ethers';
 
 module.exports = {
   defaultNetwork: 'hardhat',
@@ -26,20 +27,18 @@ module.exports = {
           url: process.env.LOCAL_MAINNET_HTTPS_URL,
           // accounts: [process.env.LOCAL_MAINNET_PRIVATE_KEY],
         },
-        kovan: {
-          url: process.env.KOVAN_HTTPS_URL,
-          accounts: [process.env.KOVAN_PRIVATE_KEY, '0x8901af9255b653e9a8f654d84b53d37b9134eb5e949f394c8ddb0c2ef4481287'],
+        rinkeby: {
+          url: process.env.RINKEBY_HTTPS_URL,
+          accounts: [process.env.RINKEBY_PRIVATE_KEY, process.env.RINKEBY_2_PRIVATE_KEY],
           gasPrice: 'auto',
         },
-        goerli: {
-          url: process.env.GOERLI_HTTPS_URL,
-          accounts: [process.env.GOERLI_PRIVATE_KEY],
-          gasPrice: 'auto',
+        ropsten: {
+          url: process.env.ROPSTEN_HTTPS_URL,
+          accounts: [process.env.ROPSTEN_PRIVATE_KEY, process.env.ROPSTEN_2_PRIVATE_KEY],
         },
         mainnet: {
           url: process.env.MAINNET_HTTPS_URL,
           accounts: [process.env.MAINNET_PRIVATE_KEY],
-          gasPrice: 18000000000, // 18 gwei
         },
       },
   solidity: {
