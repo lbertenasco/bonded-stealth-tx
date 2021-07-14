@@ -15,6 +15,7 @@ async function execute() {
   console.log('hash', hash);
   await stealthRelayer.executeWithoutBlockProtection(stealthERC20.address, rawTx.data, hash, {
     gasLimit: 30_000_000 - 15_000,
+    gasPrice: utils.parseUnits('10', 'gwei'),
   });
   console.log('sent at', moment().unix());
   console.log('Executing without block protection');

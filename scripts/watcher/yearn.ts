@@ -1,15 +1,14 @@
-import { Transaction as Web3Transaction } from 'web3-core';
 import { ethers, hardhatArguments } from 'hardhat';
 import _ from 'lodash';
-import { BigNumber, Contract, utils, Transaction as EthersTransaction } from 'ethers';
+import { BigNumber, Contract, utils, Transaction, constants } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import * as contracts from '../../utils/contracts';
 import Web3 from 'web3';
 import WebSocket from 'ws';
 
 const web3 = new Web3('ws://127.0.0.1:8546');
-const gasnowWebSocketUrl = 'wss://www.gasnow.org/ws';
-const gasnowWebSocket = new WebSocket(gasnowWebSocketUrl);
+const ethersWebSocketProvider = new ethers.providers.WebSocketProvider('ws://127.0.0.1:8546', hardhatArguments.network!);
+const gasnowWebSocket = new WebSocket('wss://www.gasnow.org/ws');
 
 const MAX_GAS_PRICE = utils.parseUnits('350', 'gwei');
 
@@ -33,7 +32,7 @@ export const reporterPrivateKeys = {
 };
 const reporterPrivateKey = reporterPrivateKeys[hardhatArguments.network! as contracts.DeployedNetwork];
 
-let rapidGasPrice: number;
+let rapidGasPrice: number = utils.parseUnits('35', 'gwei').toNumber();
 type GasNow = {
   gasPrices: {
     rapid: number;
@@ -71,8 +70,9 @@ let stealthRelayer: Contract;
 let callers: string[];
 let jobs: string[];
 let stealthRelayerPenalty: BigNumber;
-const bonded: { [key: string]: BigNumber } = {};
-const callersJobs: { [key: string]: string[] } = {};
+const bonded: { [keepers: string]: BigNumber } = {};
+const callersJobs: { [keepers: string]: string[] } = {};
+const checkedTxs: { [hash: string]: boolean } = {};
 
 const generateRandomNumber = (min: number, max: number): string => {
   return `${Math.floor(Math.random() * (max - min) + min)}`;
@@ -97,17 +97,17 @@ async function main(): Promise<void> {
       console.log('Getting bonded from', callers[i]);
       addBond(callers[i], await stealthVault.bonded(callers[i]));
     }
-    console.log('Hooking up to mempool ...');
-    web3.eth.subscribe('pendingTransactions', async (error: Error, transactionHash: string) => {
-      let tx;
-      try {
-        // For some reason web3 is failing sometimes to parse the transaction
-        tx = await web3.eth.getTransaction(transactionHash);
-      } catch (err) {}
-      if (tx && tx.to && normalizeAddress(tx.to) === normalizeAddress(stealthRelayerAddress)) {
-        checkTx(web3TransactionToEthers(tx));
-      }
+
+    ethersWebSocketProvider.on('pending', (txHash: string) => {
+      ethersWebSocketProvider.getTransaction(txHash).then((transaction) => {
+        // process.stdout.write('.');
+        if (transaction && !checkedTxs[txHash]) {
+          checkedTxs[txHash] = true;
+          checkTx(transaction);
+        }
+      });
     });
+
     console.log('Hooking up to events ...');
     stealthRelayer.on('PenaltySet', (penalty: BigNumber) => {
       console.log('Updating penalty to', utils.formatEther(penalty));
@@ -138,36 +138,31 @@ async function main(): Promise<void> {
   });
 }
 
-function web3TransactionToEthers(tx: Web3Transaction): EthersTransaction {
-  return {
-    chainId,
-    hash: tx.hash,
-    nonce: tx.nonce,
-    from: normalizeAddress(tx.from),
-    to: normalizeAddress(tx.to!),
-    gasLimit: BigNumber.from(tx.gas),
-    gasPrice: BigNumber.from(tx.gasPrice),
-    data: tx.input,
-    value: BigNumber.from(tx.value),
-  };
-}
-
-async function checkTx(tx: EthersTransaction) {
-  console.log(tx);
+async function checkTx(tx: Transaction) {
   const rand = generateRandomNumber(1, 1000000000);
+  console.time(`Whole tx analysis ${tx.hash}`);
+  console.time(`Is using stealth relayer ${rand}-${tx.hash!}`);
+  if (!isUsingStealthRelayer(tx.to!)) return;
+  console.log('*****************************************');
+  console.timeEnd(`Is using stealth relayer ${rand}-${tx.hash!}`);
+  console.time(`Transaction parse ${rand}-${tx.hash!}`);
+  const parsedTx = await stealthRelayer.interface.parseTransaction(tx);
+  console.timeEnd(`Transaction parse ${rand}-${tx.hash!}`);
+  console.time(`Transaction using stealth vault execution ${rand}-${tx.hash!}`);
+  if (!isUsingStealthVaultExecution(parsedTx.name)) return;
+  console.timeEnd(`Transaction using stealth vault execution ${rand}-${tx.hash!}`);
+  console.time(`Validating hash was not reported ${rand}-${tx.hash!}`);
+  if (await isHashReported(parsedTx.args._stealthHash)) return;
+  console.timeEnd(`Validating hash was not reported ${rand}-${tx.hash!}`);
   console.time(`Validate caller jobs ${rand}-${tx.hash!}`);
   if (!validCallerJobs(tx.from!, stealthRelayerAddress)) return;
   console.timeEnd(`Validate caller jobs ${rand}-${tx.hash!}`);
   console.time(`Validate bond for penalty ${rand}-${tx.hash!}`);
   if (!validBondForPenalty(tx.from!)) return;
   console.timeEnd(`Validate bond for penalty ${rand}-${tx.hash!}`);
-  console.time(`Transaction parse ${rand}-${tx.hash!}`);
-  const parsedTx = await stealthRelayer.interface.parseTransaction(tx);
-  console.timeEnd(`Transaction parse ${rand}-${tx.hash!}`);
-  console.time(`Validate hash ${rand}-${tx.hash!}`);
-  if (!isValidatingHash(parsedTx.name)) return;
-  console.timeEnd(`Validate hash ${rand}-${tx.hash!}`);
+  console.timeEnd(`Whole tx analysis ${tx.hash}`);
   await reportHash(parsedTx.args._stealthHash, tx.gasPrice!);
+  console.log('*****************************************');
 }
 
 async function reportHash(hash: string, validatingGasPrice: BigNumber): Promise<void> {
@@ -187,9 +182,12 @@ async function reportHash(hash: string, validatingGasPrice: BigNumber): Promise<
     },
     reporterPrivateKey as string
   );
-  await web3.eth.sendSignedTransaction(signedtx.rawTransaction!, (error: Error, hash: string) => {
-    console.log('sent report with tx hash', hash);
-  });
+  const reportingTx = await ethers.provider.sendTransaction(signedtx.rawTransaction!);
+  console.log('sent report with tx hash', reportingTx.hash);
+}
+
+function isUsingStealthRelayer(to: string): boolean {
+  return to == stealthRelayerAddress;
 }
 
 function validCallerJobs(caller: string, jobs: string): boolean {
@@ -201,16 +199,21 @@ function validCallerJobs(caller: string, jobs: string): boolean {
 }
 
 function validBondForPenalty(caller: string): boolean {
-  return bonded[caller].gte(stealthRelayerPenalty);
+  return bonded[normalizeAddress(caller)].gte(stealthRelayerPenalty);
 }
 
-function isValidatingHash(functionName: string): boolean {
+function isUsingStealthVaultExecution(functionName: string): boolean {
   return (
     functionName === 'execute' ||
     functionName === 'executeAndPay' ||
     functionName === 'executeWithoutBlockProtection' ||
     functionName === 'executeWithoutBlockProtectionAndPay'
   );
+}
+
+async function isHashReported(hash: string): Promise<boolean> {
+  const hashReportedBy = await stealthVault.hashReportedBy(hash);
+  return hashReportedBy != constants.AddressZero;
 }
 
 function addCallerStealthContracts(caller: string, callerContracts: string[]): void {
