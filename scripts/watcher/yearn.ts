@@ -5,6 +5,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import * as contracts from '../../utils/contracts';
 import Web3 from 'web3';
 import * as gasnow from './tools/gasnow';
+import * as alive from './tools/alive';
 import { getChainId, getReporterPrivateKey, getWSUrl } from './tools/env';
 
 const MAX_GAS_PRICE = utils.parseUnits('350', 'gwei');
@@ -53,9 +54,10 @@ async function main(): Promise<void> {
       addBond(callers[i], await stealthVault.bonded(callers[i]));
     }
 
+    alive.startCheck();
     ethersWebSocketProvider.on('pending', (txHash: string) => {
-      console.log('.');
       ethersWebSocketProvider.getTransaction(txHash).then((transaction) => {
+        alive.stillAlive();
         if (transaction && !checkedTxs[txHash]) {
           checkedTxs[txHash] = true;
           checkTx(transaction);
