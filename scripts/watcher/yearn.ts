@@ -4,7 +4,7 @@ import { BigNumber, Contract, utils, Transaction, constants } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import * as contracts from '../../utils/contracts';
 import Web3 from 'web3';
-import WebSocket from 'ws';
+import * as gasnow from './tools/gasnow';
 import { getChainId, getReporterPrivateKey, getWSUrl } from './tools/env';
 
 const MAX_GAS_PRICE = utils.parseUnits('350', 'gwei');
@@ -16,39 +16,6 @@ const reporterPrivateKey = getReporterPrivateKey(hardhatArguments.network!);
 
 const web3 = new Web3(wsUrlProvider);
 const ethersWebSocketProvider = new ethers.providers.WebSocketProvider(wsUrlProvider, hardhatArguments.network!);
-const gasnowWebSocket = new WebSocket('wss://www.gasnow.org/ws');
-
-let rapidGasPrice: number = utils.parseUnits('35', 'gwei').toNumber();
-type GasNow = {
-  gasPrices: {
-    rapid: number;
-    fast: number;
-    standerd: number;
-    slow: number;
-  };
-};
-
-const updatePageGasPriceData = (data: GasNow) => {
-  if (data && data.gasPrices) {
-    rapidGasPrice = data.gasPrices['rapid'];
-    console.log('Updated rapid gas price to', utils.formatUnits(rapidGasPrice, 'gwei'));
-  }
-};
-
-gasnowWebSocket.onopen = () => {
-  console.log('Gasnow connection open ...');
-};
-gasnowWebSocket.onmessage = (evt: WebSocket.MessageEvent) => {
-  const data = JSON.parse(evt.data as string);
-  if (data.type) {
-    updatePageGasPriceData(data.data);
-  }
-};
-
-gasnowWebSocket.onclose = () => {
-  console.log('Gasnow connection closed.');
-  process.exit(1);
-};
 
 let nonce: number;
 let reporterSigner: SignerWithAddress;
@@ -66,6 +33,7 @@ const generateRandomNumber = (min: number, max: number): string => {
 };
 
 async function main(): Promise<void> {
+  await gasnow.start();
   return new Promise(async (resolve) => {
     console.log(`Starting on network ${hardhatArguments.network!}(${chainId}) ...`);
     console.log('Getting reporter ...');
@@ -86,6 +54,7 @@ async function main(): Promise<void> {
     }
 
     ethersWebSocketProvider.on('pending', (txHash: string) => {
+      console.log('.');
       ethersWebSocketProvider.getTransaction(txHash).then((transaction) => {
         if (transaction && !checkedTxs[txHash]) {
           checkedTxs[txHash] = true;
@@ -154,9 +123,9 @@ async function checkTx(tx: Transaction) {
 async function reportHash(hash: string, validatingGasPrice: BigNumber): Promise<void> {
   console.log('reporting hash', hash);
   nonce++;
-  let rushGasPrice = validatingGasPrice.gt(rapidGasPrice)
+  let rushGasPrice = validatingGasPrice.gt(gasnow.getGasPrice().rapid)
     ? validatingGasPrice.add(validatingGasPrice.div(3))
-    : BigNumber.from(`${rapidGasPrice}`);
+    : BigNumber.from(`${gasnow.getGasPrice().rapid}`);
   rushGasPrice = rushGasPrice.gt(MAX_GAS_PRICE) ? MAX_GAS_PRICE : rushGasPrice;
   const populatedTx = await stealthVault.populateTransaction.reportHash(hash, { gasLimit: 1000000, gasPrice: rushGasPrice, nonce });
   const signedtx = await web3.eth.accounts.signTransaction(
@@ -242,3 +211,11 @@ main()
     console.error(error);
     process.exit(1);
   });
+
+process.on('uncaughtException', () => {
+  process.exit(1);
+});
+
+process.on('unhandledRejection', () => {
+  process.exit(1);
+});
