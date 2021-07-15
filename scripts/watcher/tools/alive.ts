@@ -6,7 +6,6 @@ export const startCheck = (): void => {
 };
 
 export const stillAlive = (): void => {
-  process.stdout.write('.');
   clearTimeout(aliveInterval);
   startCheck();
 };
