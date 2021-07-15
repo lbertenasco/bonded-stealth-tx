@@ -1,36 +1,22 @@
-import { ethers, hardhatArguments } from 'hardhat';
+import { ethers, hardhatArguments, network } from 'hardhat';
 import _ from 'lodash';
 import { BigNumber, Contract, utils, Transaction, constants } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import * as contracts from '../../utils/contracts';
 import Web3 from 'web3';
 import WebSocket from 'ws';
-
-const web3 = new Web3('ws://127.0.0.1:8546');
-const ethersWebSocketProvider = new ethers.providers.WebSocketProvider('ws://127.0.0.1:8546', hardhatArguments.network!);
-const gasnowWebSocket = new WebSocket('wss://www.gasnow.org/ws');
+import { getChainId, getReporterPrivateKey, getWSUrl } from './tools/env';
 
 const MAX_GAS_PRICE = utils.parseUnits('350', 'gwei');
-
+const wsUrlProvider = getWSUrl(hardhatArguments.network!);
 const stealthVaultAddress = contracts.stealthVault[hardhatArguments.network! as contracts.DeployedNetwork];
-
 const stealthRelayerAddress = contracts.stealthRelayer[hardhatArguments.network! as contracts.DeployedNetwork];
+const chainId = getChainId(hardhatArguments.network!);
+const reporterPrivateKey = getReporterPrivateKey(hardhatArguments.network!);
 
-export const chainIds = {
-  mainnet: 1,
-  goerli: 5,
-  ropsten: 3,
-  rinkeby: 4,
-};
-const chainId = chainIds[hardhatArguments.network! as contracts.DeployedNetwork];
-
-export const reporterPrivateKeys = {
-  mainnet: process.env.MAINNET_PRIVATE_KEY,
-  goerli: process.env.GOERLY_2_PRIVATE_KEY,
-  ropsten: process.env.ROPSTEN_2_PRIVATE_KEY,
-  rinkeby: process.env.RINKEBY_2_PRIVATE_KEY,
-};
-const reporterPrivateKey = reporterPrivateKeys[hardhatArguments.network! as contracts.DeployedNetwork];
+const web3 = new Web3(wsUrlProvider);
+const ethersWebSocketProvider = new ethers.providers.WebSocketProvider(wsUrlProvider, hardhatArguments.network!);
+const gasnowWebSocket = new WebSocket('wss://www.gasnow.org/ws');
 
 let rapidGasPrice: number = utils.parseUnits('35', 'gwei').toNumber();
 type GasNow = {
@@ -41,6 +27,7 @@ type GasNow = {
     slow: number;
   };
 };
+
 const updatePageGasPriceData = (data: GasNow) => {
   if (data && data.gasPrices) {
     rapidGasPrice = data.gasPrices['rapid'];
@@ -100,7 +87,6 @@ async function main(): Promise<void> {
 
     ethersWebSocketProvider.on('pending', (txHash: string) => {
       ethersWebSocketProvider.getTransaction(txHash).then((transaction) => {
-        // process.stdout.write('.');
         if (transaction && !checkedTxs[txHash]) {
           checkedTxs[txHash] = true;
           checkTx(transaction);
