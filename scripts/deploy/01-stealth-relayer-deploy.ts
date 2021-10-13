@@ -25,7 +25,7 @@ function promptAndSubmit(): Promise<void | Error> {
           console.log('PLEASE add to utils/contracts.ts');
           console.log(`export const stealthRelayer = '${stealthRelayer.address}'`);
           resolve();
-        } catch (err) {
+        } catch (err: any) {
           reject(`Error while deploying stealthRelayer contract: ${err.message}`);
         }
       } else {

@@ -19,6 +19,7 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
   EnumerableSet.AddressSet internal _jobs;
 
   bool public override forceBlockProtection;
+  uint80 public override reorgProtection;
   address public override caller;
 
   constructor(address _stealthVault) Governable(msg.sender) StealthTx(_stealthVault) {}
@@ -100,6 +101,10 @@ contract StealthRelayer is Governable, CollectableDust, StealthTx, IStealthRelay
 
   function setForceBlockProtection(bool _forceBlockProtection) external override onlyGovernor {
     forceBlockProtection = _forceBlockProtection;
+  }
+
+  function setReorgProtection(uint80 _reorgProtection) external override onlyGovernor {
+    reorgProtection = _reorgProtection;
   }
 
   function jobs() external view override returns (address[] memory _jobsList) {

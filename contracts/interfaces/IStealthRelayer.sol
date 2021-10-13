@@ -6,9 +6,13 @@ interface IStealthRelayer {
 
   function forceBlockProtection() external view returns (bool _forceBlockProtection);
 
+  function reorgProtection() external view returns (uint80 _reorgProtection);
+
   function jobs() external view returns (address[] memory _jobsList);
 
   function setForceBlockProtection(bool _forceBlockProtection) external;
+
+  function setReorgProtection(uint80 _reorgProtection) external;
 
   function addJobs(address[] calldata _jobsList) external;
 
