@@ -1,6 +1,6 @@
 {
   "name": "@lbertenasco/bonded-stealth-tx",
-  "version": "0.3.2",
+  "version": "1.0.0",
   "description": "bonded stealth tx vault smart contracts",
   "homepage": "https://github.com/lbertenasco/bonded-stealth-tx#readme",
   "bugs": {
